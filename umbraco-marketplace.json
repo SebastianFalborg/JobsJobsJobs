@@ -1,0 +1,14 @@
+{
+    "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json", 
+    "AuthorDetails": {
+      "Name": "Sebastian Falborg Braun",
+      "ImageUrl": "https://github.com/NotSoap.png"
+    },
+    "Category": "",
+    "Description": "",
+    "LicenseTypes": [ "Free" ],
+    "IssueTrackerUrl": "https://github.com/NotSoap/JobsJobsJobs/issues",
+    "PackageType": "Package",
+    "Tags": [],
+    "Title": "Jobs Jobs Jobs "
+  }

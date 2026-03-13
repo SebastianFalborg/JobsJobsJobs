@@ -1,0 +1,14 @@
+{
+  "id": "JobsJobsJobs",
+  "name": "JobsJobsJobs",
+  "version": "0.0.0",
+  "allowTelemetry": true,
+  "extensions": [
+    {
+      "name": "Jobs Jobs Jobs Bundle",
+      "alias": "JobsJobsJobs.Bundle",
+      "type": "bundle",
+      "js": "/App_Plugins/JobsJobsJobs/jobs-jobs-jobs.js"
+    }
+  ]
+}
