@@ -1,0 +1,10 @@
+{
+  "name": "jobsjobsjobs-repo",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix ./src/JobsJobsJobs/Client run build",
+    "watch": "npm --prefix ./src/JobsJobsJobs/Client run watch",
+    "generate-client": "npm --prefix ./src/JobsJobsJobs/Client run generate-client",
+    "install:client": "npm --prefix ./src/JobsJobsJobs/Client ci"
+  }
+}

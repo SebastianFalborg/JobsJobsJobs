@@ -22,5 +22,9 @@
 
     "types": [ "@umbraco-cms/backoffice/extension-types" ]
   },
-  "include": [ "src" ]
+  "include": [ "src" ],
+  "exclude": [
+    "src/api",
+    "src/dashboards/dashboard.element.ts"
+  ]
 }

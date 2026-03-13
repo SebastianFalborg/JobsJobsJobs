@@ -1,17 +1,17 @@
-export const manifests: Array<UmbExtensionManifest> = [
+export const manifests: Array<any> = [
   {
-    name: "Jobs Jobs Jobs Dashboard",
-    alias: "JobsJobsJobs.Dashboard",
+    name: "Jobs Jobs Jobs Background Jobs Dashboard",
+    alias: "JobsJobsJobs.Dashboard.BackgroundJobs",
     type: "dashboard",
-    js: () => import("./dashboard.element.js"),
+    js: () => import("./background-jobs-dashboard.element.js"),
     meta: {
-      label: "Example Dashboard",
-      pathname: "example-dashboard",
+      label: "Background Jobs",
+      pathname: "background-jobs",
     },
     conditions: [
       {
         alias: "Umb.Condition.SectionAlias",
-        match: "Umb.Section.Content",
+        match: "Umb.Section.Settings",
       },
     ],
   },
