@@ -4,6 +4,11 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.BackgroundJobs;
 
+public class BackgroundJobDashboardOptions
+{
+    public bool IncludeUmbracoJobs { get; set; }
+}
+
 public static class BackgroundJobDashboardStateKeys
 {
     public const string ErrorMessage = "backgroundJobErrorMessage";
@@ -77,6 +82,17 @@ internal static class BackgroundJobDashboardNaming
     internal static string GetAlias(IRecurringBackgroundJob job) => GetAlias(job.GetType());
 
     internal static string GetAlias(Type jobType) => jobType.FullName ?? jobType.Name;
+
+    internal static bool IsUmbracoJob(IRecurringBackgroundJob job) => IsUmbracoJob(job.GetType());
+
+    internal static bool IsUmbracoJob(Type jobType)
+        => jobType.Namespace?.StartsWith("Umbraco.", StringComparison.Ordinal) is true;
+
+    internal static bool ShouldInclude(IRecurringBackgroundJob job, BackgroundJobDashboardOptions options)
+        => options.IncludeUmbracoJobs || IsUmbracoJob(job) is false;
+
+    internal static bool ShouldInclude(string alias, BackgroundJobDashboardOptions options)
+        => options.IncludeUmbracoJobs || alias.StartsWith("Umbraco.", StringComparison.Ordinal) is false;
 
     internal static string GetDisplayName(IRecurringBackgroundJob job) => GetDisplayName(job.GetType());
 

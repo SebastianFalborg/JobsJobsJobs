@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Options;
 using NPoco;
 using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Infrastructure.BackgroundJobs;
@@ -10,17 +11,27 @@ namespace JobsJobsJobs.BackgroundJobs;
 
 internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, IBackgroundJobRunRecorder
 {
+    private readonly BackgroundJobDashboardOptions _options;
     private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
     private readonly IScopeProvider _scopeProvider;
 
-    public BackgroundJobRunStore(IScopeProvider scopeProvider, IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor)
+    public BackgroundJobRunStore(
+        IScopeProvider scopeProvider,
+        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor,
+        IOptions<BackgroundJobDashboardOptions> options)
     {
+        _options = options.Value;
         _scopeProvider = scopeProvider;
         _runExecutionContextAccessor = runExecutionContextAccessor;
     }
 
     public void MarkStarted(IRecurringBackgroundJob job, BackgroundJobRunTrigger trigger)
     {
+        if (ShouldInclude(job) is false)
+        {
+            return;
+        }
+
         BackgroundJobRunExecutionContext context = _runExecutionContextAccessor.Current ?? _runExecutionContextAccessor.Create(job, trigger);
         var alias = BackgroundJobDashboardNaming.GetAlias(job);
         var run = new BackgroundJobRunDto
@@ -44,7 +55,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
     public void MarkCompleted(IRecurringBackgroundJob job, BackgroundJobStatus status, EventMessages messages, IDictionary<string, object?>? state = null)
     {
         BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
-        if (context is null)
+        if (context is null || ShouldInclude(context.JobAlias) is false)
         {
             return;
         }
@@ -84,7 +95,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
     public void WriteLog(string alias, BackgroundJobRunLogLevel level, string message)
     {
         BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
-        if (string.IsNullOrWhiteSpace(message) || context is null)
+        if (string.IsNullOrWhiteSpace(message) || context is null || ShouldInclude(context.JobAlias) is false)
         {
             return;
         }
@@ -154,6 +165,10 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
     private static string? NormalizeStoredText(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private bool ShouldInclude(IRecurringBackgroundJob job) => BackgroundJobDashboardNaming.ShouldInclude(job, _options);
+
+    private bool ShouldInclude(string alias) => BackgroundJobDashboardNaming.ShouldInclude(alias, _options);
 
     private static string? ResolveMessage(EventMessages messages, IDictionary<string, object?>? state)
     {

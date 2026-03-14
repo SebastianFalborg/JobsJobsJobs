@@ -10,7 +10,7 @@ const o = [
     name: "Jobs Jobs Jobs Background Jobs Dashboard",
     alias: "JobsJobsJobs.Dashboard.BackgroundJobs",
     type: "dashboard",
-    js: () => import("./background-jobs-dashboard.element-D7n2VOri.js"),
+    js: () => import("./background-jobs-dashboard.element-X0EZH2k0.js"),
     meta: {
       label: "Background Jobs",
       pathname: "background-jobs"

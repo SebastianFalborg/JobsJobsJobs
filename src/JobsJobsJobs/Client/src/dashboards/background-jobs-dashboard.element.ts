@@ -121,6 +121,12 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
       const data = (await response.json()) as BackgroundJobDashboardCollectionResponseModel;
       this._items = data.items ?? [];
+
+      if (this._items.length > 0) {
+        this._startAutoRefresh();
+      } else {
+        this._stopAutoRefresh();
+      }
     } catch (error) {
       this._errorMessage = error instanceof Error ? error.message : "Could not load background jobs.";
     } finally {
@@ -260,6 +266,37 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     return this._getStatusClassFromValue(this._getStatusLabel(item));
   }
 
+  private _normalizeText(value?: string) {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  private _isSameText(left?: string, right?: string) {
+    return this._normalizeText(left) === this._normalizeText(right);
+  }
+
+  private _renderCurrentStateDetails(item: BackgroundJobDashboardItem) {
+    const currentError = this._normalizeText(item.lastError);
+    const currentMessage = this._normalizeText(item.lastMessage);
+    const storedError = this._normalizeText(item.latestRun?.error);
+    const storedMessage = this._normalizeText(item.latestRun?.message);
+
+    if (currentError && this._isSameText(currentError, storedError) === false) {
+      return html`
+        <div><strong>Error:</strong> ${currentError}</div>
+        ${currentMessage && this._isSameText(currentMessage, storedMessage) === false
+          ? html`<div><strong>Message:</strong> ${currentMessage}</div>`
+          : ""}
+      `;
+    }
+
+    if (currentMessage && this._isSameText(currentMessage, storedMessage) === false) {
+      return html`<div><strong>Message:</strong> ${currentMessage}</div>`;
+    }
+
+    return "";
+  }
+
   private _matchesFilter(item: BackgroundJobDashboardItem) {
     switch (this._statusFilter) {
       case "running":
@@ -291,55 +328,79 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
 
     return html`
-      <div class="persisted-run">
-        <div class="persisted-run-heading">
-          <strong>Latest stored run</strong>
-          <span class=${this._getStatusClassFromValue(run.status)}>${run.status}</span>
+      <details class="persisted-run">
+        <summary class="persisted-run-toggle">
+          <span class="persisted-run-heading">
+            <span class="persisted-run-indicator" aria-hidden="true">
+              <span class="persisted-run-chevron">▸</span>
+              <span class="muted">Details</span>
+            </span>
+            <strong>Latest stored run</strong>
+            <span class=${this._getStatusClassFromValue(run.status)}>${run.status}</span>
+          </span>
+          <span class="muted persisted-run-toggle-meta">
+            ${this._formatDate(run.startedAt)}
+            ${run.trigger}
+            ${this._formatDuration(run.duration)}
+          </span>
+        </summary>
+        <div class="persisted-run-body">
+          ${run.completedAt ? html`<div class="muted">Completed ${this._formatDate(run.completedAt)}</div>` : ""}
+          ${run.error
+            ? html`<div><strong>Stored error:</strong> ${run.error}</div>`
+            : run.message
+              ? html`<div><strong>Stored message:</strong> ${run.message}</div>`
+              : ""}
+          ${run.logs.length > 0
+            ? html`
+                <div class="persisted-run-logs">
+                  <strong>Stored logs</strong>
+                  <ul class="log-list">
+                    ${run.logs.map(
+                      (log) => html`
+                        <li class="log-item">
+                          <div class="log-meta">
+                            <span class="log-time">${this._formatDate(log.loggedAt)}</span>
+                            <span class=${this._getStatusClassFromValue(log.level)}>${log.level}</span>
+                          </div>
+                          <span class="log-message">${log.message}</span>
+                        </li>
+                      `,
+                    )}
+                  </ul>
+                </div>
+              `
+            : html`<div class="muted">No stored logs for the latest run.</div>`}
         </div>
-        <div class="persisted-run-summary">
-          <div class="persisted-run-field">
-            <span class="muted">Started</span>
-            <span>${this._formatDate(run.startedAt)}</span>
+      </details>
+    `;
+  }
+
+  private _renderEmptyState() {
+    if (this._isLoading) {
+      return html`<tr><td colspan="8">Loading jobs…</td></tr>`;
+    }
+
+    if (this._items.length > 0) {
+      return html`<tr><td colspan="8">No jobs match the selected filter.</td></tr>`;
+    }
+
+    return html`
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">
+            <strong>No custom background jobs have been registered yet.</strong>
+            <div class="muted">Add a class implementing <code>IRecurringBackgroundJob</code> and register it in Umbraco to see it here.</div>
+            <a
+              class="empty-state-link"
+              href="https://github.com/SebastianFalborg/JobsJobsJobs/blob/main/docs/README_nuget.md#register-your-first-job"
+              target="_blank"
+              rel="noopener noreferrer">
+              View setup guide
+            </a>
           </div>
-          <div class="persisted-run-field">
-            <span class="muted">Completed</span>
-            <span>${this._formatDate(run.completedAt)}</span>
-          </div>
-          <div class="persisted-run-field">
-            <span class="muted">Trigger</span>
-            <span>${run.trigger}</span>
-          </div>
-          <div class="persisted-run-field">
-            <span class="muted">Duration</span>
-            <span>${this._formatDuration(run.duration)}</span>
-          </div>
-        </div>
-        ${run.error
-          ? html`<div><strong>Stored error:</strong> ${run.error}</div>`
-          : run.message
-            ? html`<div><strong>Stored message:</strong> ${run.message}</div>`
-            : ""}
-        ${run.logs.length > 0
-          ? html`
-              <div class="persisted-run-logs">
-                <strong>Stored logs</strong>
-                <ul class="log-list">
-                  ${run.logs.map(
-                    (log) => html`
-                      <li class="log-item">
-                        <div class="log-meta">
-                          <span class="log-time">${this._formatDate(log.loggedAt)}</span>
-                          <span class=${this._getStatusClassFromValue(log.level)}>${log.level}</span>
-                        </div>
-                        <span class="log-message">${log.message}</span>
-                      </li>
-                    `,
-                  )}
-                </ul>
-              </div>
-            `
-          : html`<div class="muted">No stored logs for the latest run.</div>`}
-      </div>
+        </td>
+      </tr>
     `;
   }
 
@@ -347,11 +408,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     const items = this._getVisibleItems();
 
     if (items.length === 0) {
-      const message = this._items.length === 0
-        ? "No recurring background jobs found."
-        : "No jobs match the selected filter.";
-
-      return html`<tr><td colspan="8">${this._isLoading ? "Loading jobs…" : message}</td></tr>`;
+      return this._renderEmptyState();
     }
 
     return items.map(
@@ -378,13 +435,9 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
             </uui-button>
           </td>
         </tr>
-        ${item.lastError
-          ? html`<tr class="details"><td colspan="8"><strong>Error:</strong> ${item.lastError}${item.lastMessage ? html`<div><strong>Message:</strong> ${item.lastMessage}</div>` : ""}${this._renderLatestRun(item)}</td></tr>`
-          : item.lastMessage
-            ? html`<tr class="details"><td colspan="8"><strong>Message:</strong> ${item.lastMessage}${this._renderLatestRun(item)}</td></tr>`
-            : item.latestRun
-              ? html`<tr class="details"><td colspan="8">${this._renderLatestRun(item)}</td></tr>`
-              : ""}`,
+        ${item.lastError || item.lastMessage || item.latestRun
+          ? html`<tr class="details"><td colspan="8">${this._renderCurrentStateDetails(item)}${this._renderLatestRun(item)}</td></tr>`
+          : ""}`,
     );
   }
 
@@ -395,7 +448,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
           Refresh
         </uui-button>
         <p>Recurring background jobs registered in Umbraco with status and manual trigger.</p>
-        <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds.</p>
+        <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds when custom jobs are present.</p>
         ${this._errorMessage ? html`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
           <label class="filter-label" for="status-filter">Status filter</label>
@@ -463,6 +516,24 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
       .refresh-info {
         margin-top: calc(var(--uui-size-space-1) * -1);
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-2);
+        padding: var(--uui-size-space-2) 0;
+      }
+
+      .empty-state-link {
+        width: fit-content;
+        color: var(--uui-color-interactive-emphasis);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .empty-state-link:hover {
+        text-decoration: underline;
       }
 
       .toolbar {
@@ -540,6 +611,27 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         gap: var(--uui-size-space-2);
       }
 
+      .persisted-run-toggle {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--uui-size-space-2);
+        cursor: pointer;
+      }
+
+      .persisted-run-toggle-meta {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-2);
+      }
+
+      .persisted-run-body {
+        display: grid;
+        gap: var(--uui-size-space-2);
+        padding-top: var(--uui-size-space-2);
+      }
+
       .persisted-run-heading {
         display: flex;
         flex-wrap: wrap;
@@ -547,18 +639,19 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         gap: var(--uui-size-space-3);
       }
 
-      .persisted-run-summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-        gap: var(--uui-size-space-3);
+      .persisted-run-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--uui-size-space-1);
       }
 
-      .persisted-run-field {
-        display: grid;
-        gap: var(--uui-size-space-1);
-        padding: var(--uui-size-space-2) var(--uui-size-space-3);
-        background: var(--uui-color-surface);
-        border-radius: var(--uui-border-radius);
+      .persisted-run-chevron {
+        display: inline-block;
+        transition: transform 120ms ease;
+      }
+
+      .persisted-run[open] .persisted-run-chevron {
+        transform: rotate(90deg);
       }
 
       .persisted-run-logs {
