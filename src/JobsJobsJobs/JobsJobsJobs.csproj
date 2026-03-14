@@ -9,7 +9,7 @@
   <PropertyGroup>
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
-    <Version>1.0.1-local.1</Version>
+    <Version>1.0.1-local.2</Version>
     <Title>Jobs Jobs Jobs </Title>
     <Description>...</Description>
     <PackageTags>umbraco;umbraco-marketplace</PackageTags>
