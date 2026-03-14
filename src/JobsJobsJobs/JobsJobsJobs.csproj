@@ -9,13 +9,14 @@
   <PropertyGroup>
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
+    <Version>1.0.1-local.1</Version>
     <Title>Jobs Jobs Jobs </Title>
     <Description>...</Description>
     <PackageTags>umbraco;umbraco-marketplace</PackageTags>
     <Authors>Sebastian Falborg Braun</Authors>
     <Copyright>$([System.DateTime]::UtcNow.ToString(`yyyy`)) © Sebastian Falborg Braun</Copyright>
-    <PackageProjectUrl>https://github.com/NotSoap/JobsJobsJobs</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/NotSoap/JobsJobsJobs</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/SebastianFalborg/JobsJobsJobs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SebastianFalborg/JobsJobsJobs</RepositoryUrl>
     <PackageReadmeFile>README_nuget.md</PackageReadmeFile>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
