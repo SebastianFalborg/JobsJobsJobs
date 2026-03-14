@@ -10,14 +10,15 @@
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
     <Version>1.0.1-local.2</Version>
-    <Title>Jobs Jobs Jobs </Title>
-    <Description>...</Description>
-    <PackageTags>umbraco;umbraco-marketplace</PackageTags>
+    <Title>Jobs Jobs Jobs</Title>
+    <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, and stored run logs.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs</PackageTags>
     <Authors>Sebastian Falborg Braun</Authors>
     <Copyright>$([System.DateTime]::UtcNow.ToString(`yyyy`)) © Sebastian Falborg Braun</Copyright>
     <PackageProjectUrl>https://github.com/SebastianFalborg/JobsJobsJobs</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SebastianFalborg/JobsJobsJobs</RepositoryUrl>
     <PackageReadmeFile>README_nuget.md</PackageReadmeFile>
+    <PackageReleaseNotes>Improves dashboard UX, persisted run history hydration, concurrency handling, and automatic job completion tracking.</PackageReleaseNotes>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon></PackageIcon>

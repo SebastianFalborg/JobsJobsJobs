@@ -2,6 +2,15 @@
 
 Jobs Jobs Jobs adds a backoffice dashboard for recurring Umbraco background jobs, including runtime status and manual triggering.
 
+## Why use this over Hangfire?
+
+Jobs Jobs Jobs is aimed at teams that are already using Umbraco recurring background jobs and want a simpler, more Umbraco-native experience.
+
+- Lightweight setup with no separate job server or extra dashboard product to introduce
+- Focused backoffice UI for recurring Umbraco jobs, status, manual runs, and persisted run history
+- Lower operational overhead for simple scheduled tasks where a full background processing platform would be overkill
+- Better fit when the goal is visibility and control of Umbraco jobs rather than queue orchestration
+
 ## Package usage
 
 If you want the install and usage guide for the package itself, see:
@@ -45,6 +54,14 @@ dotnet pack -c Release
 ```
 
 `dotnet pack` automatically runs the client build before packaging.
+
+## Non-goals
+
+This package does not try to replace every advanced background processing scenario.
+
+- It is not a full queue processing platform
+- It is not trying to provide Hangfire-style batches, continuations, or distributed worker orchestration
+- It is focused on recurring Umbraco background jobs, visibility, and operational clarity
 
 ## Repository structure
 

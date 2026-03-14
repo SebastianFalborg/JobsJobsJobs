@@ -2,32 +2,39 @@
 
 [![Downloads](https://img.shields.io/nuget/dt/Umbraco.Community.JobsJobsJobs?color=cc9900)](https://www.nuget.org/packages/Umbraco.Community.JobsJobsJobs/)
 [![NuGet](https://img.shields.io/nuget/vpre/Umbraco.Community.JobsJobsJobs?color=0273B3)](https://www.nuget.org/packages/Umbraco.Community.JobsJobsJobs)
-[![GitHub license](https://img.shields.io/github/license/NotSoap/JobsJobsJobs?color=8AB803)](../LICENSE)
+[![GitHub license](https://img.shields.io/github/license/SebastianFalborg/JobsJobsJobs?color=8AB803)](../LICENSE)
 
-TODO: describe your package
+Jobs Jobs Jobs adds a backoffice dashboard for recurring Umbraco background jobs, including runtime status, manual triggering, persisted run history, and stored run logs.
 
-<!--
-Including screenshots is a really good idea! 
+## Why use this instead of Hangfire?
 
-If you put images into /docs/screenshots, then you would reference them in this readme as, for example:
+This package is aimed at Umbraco solutions that already use `IRecurringBackgroundJob` and want a simpler, more Umbraco-native dashboard experience.
 
-<img alt="..." src="https://github.com/NotSoap/JobsJobsJobs/blob/develop/docs/screenshots/screenshot.png">
-
-And don't forget to add the screenshot files to umbraco-marketplace.json too!
--->
+- Focused UI for recurring Umbraco jobs
+- Manual triggering directly from the backoffice
+- Persisted run history and stored logs
+- Lower setup and operational overhead for simple scheduled work
 
 ## Installation
 
-Add the package to an existing Umbraco website (v17+) from nuget:
+Add the package to an existing Umbraco website (v17+) from NuGet:
 
 `dotnet add package Umbraco.Community.JobsJobsJobs`
 
-TODO *provide any other instructions for someone using your package*
+For the full install and usage guide, see:
+
+```text
+docs/README_nuget.md
+```
+
+After installing the package, register one or more `IRecurringBackgroundJob` implementations and open `Settings -> Background Jobs` in the Umbraco backoffice.
 
 ## Contributing
 
 Contributions to this package are most welcome! Please read the [Contributing Guidelines](CONTRIBUTING.md).
 
-## Acknowledgments
+## Non-goals
 
-TODO
+- This package is not trying to be a full queue processing platform
+- It does not aim to replicate Hangfire batches, continuations, or distributed worker orchestration
+- It is focused on operational visibility and control for recurring Umbraco background jobs
