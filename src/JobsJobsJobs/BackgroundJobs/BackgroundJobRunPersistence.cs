@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using NPoco;
@@ -11,24 +10,28 @@ namespace JobsJobsJobs.BackgroundJobs;
 
 internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, IBackgroundJobRunRecorder
 {
-    private readonly ConcurrentDictionary<string, Guid> _activeRuns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
     private readonly IScopeProvider _scopeProvider;
 
-    public BackgroundJobRunStore(IScopeProvider scopeProvider) => _scopeProvider = scopeProvider;
+    public BackgroundJobRunStore(IScopeProvider scopeProvider, IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor)
+    {
+        _scopeProvider = scopeProvider;
+        _runExecutionContextAccessor = runExecutionContextAccessor;
+    }
 
     public void MarkStarted(IRecurringBackgroundJob job, BackgroundJobRunTrigger trigger)
     {
-        var now = DateTime.UtcNow;
+        BackgroundJobRunExecutionContext context = _runExecutionContextAccessor.Current ?? _runExecutionContextAccessor.Create(job, trigger);
         var alias = BackgroundJobDashboardNaming.GetAlias(job);
         var run = new BackgroundJobRunDto
         {
-            Id = Guid.NewGuid(),
+            Id = context.RunId,
             JobAlias = alias,
             JobName = BackgroundJobDashboardNaming.GetDisplayName(job),
-            Trigger = trigger.ToString(),
+            Trigger = context.Trigger.ToString(),
             Status = BackgroundJobStatus.Running.ToString(),
-            StartedAt = now,
-            CompletedAt = now,
+            StartedAt = context.StartedAt,
+            CompletedAt = null,
             DurationMs = 0,
             Message = string.Empty,
             Error = string.Empty,
@@ -36,13 +39,12 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
         using var scope = _scopeProvider.CreateScope(autoComplete: true);
         scope.Database.Insert(run);
-        _activeRuns[alias] = run.Id;
     }
 
     public void MarkCompleted(IRecurringBackgroundJob job, BackgroundJobStatus status, EventMessages messages, IDictionary<string, object?>? state = null)
     {
-        var alias = BackgroundJobDashboardNaming.GetAlias(job);
-        if (_activeRuns.TryRemove(alias, out Guid runId) is false)
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        if (context is null)
         {
             return;
         }
@@ -52,7 +54,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         var error = status == BackgroundJobStatus.Failed ? ResolveError(messages, state) : null;
 
         using var scope = _scopeProvider.CreateScope(autoComplete: true);
-        var run = scope.Database.SingleOrDefaultById<BackgroundJobRunDto>(runId);
+        var run = scope.Database.SingleOrDefaultById<BackgroundJobRunDto>(context.RunId);
         if (run is null)
         {
             return;
@@ -67,12 +69,12 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
         if (string.IsNullOrWhiteSpace(message) is false)
         {
-            InsertLog(scope.Database, run.Id, BackgroundJobRunLogLevel.Information, message!);
+            InsertLog(scope.Database, context.RunId, BackgroundJobRunLogLevel.Information, message!);
         }
 
         if (string.IsNullOrWhiteSpace(error) is false)
         {
-            InsertLog(scope.Database, run.Id, BackgroundJobRunLogLevel.Error, error!);
+            InsertLog(scope.Database, context.RunId, BackgroundJobRunLogLevel.Error, error!);
         }
     }
 
@@ -81,13 +83,14 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
     public void WriteLog(string alias, BackgroundJobRunLogLevel level, string message)
     {
-        if (string.IsNullOrWhiteSpace(message) || _activeRuns.TryGetValue(alias, out Guid runId) is false)
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        if (string.IsNullOrWhiteSpace(message) || context is null)
         {
             return;
         }
 
         using var scope = _scopeProvider.CreateScope(autoComplete: true);
-        InsertLog(scope.Database, runId, level, message);
+        InsertLog(scope.Database, context.RunId, level, message);
     }
 
     public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, int maxLogsPerRun = 20)

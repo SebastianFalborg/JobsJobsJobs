@@ -67,7 +67,8 @@ internal abstract class BackgroundJobRunTablesMigrationBase : MigrationBase
             .WithColumn(nameof(BackgroundJobRunDto.CompletedAt)).AsDateTime().Nullable()
             .WithColumn(nameof(BackgroundJobRunDto.DurationMs)).AsInt64().Nullable()
             .WithColumn(nameof(BackgroundJobRunDto.Message)).AsString(4000).Nullable()
-            .WithColumn(nameof(BackgroundJobRunDto.Error)).AsString(4000).Nullable();
+            .WithColumn(nameof(BackgroundJobRunDto.Error)).AsString(4000).Nullable()
+            .Do();
 
     protected void CreateRunLogTable()
         => Create.Table(BackgroundJobRunLogDto.TableName)
@@ -75,7 +76,8 @@ internal abstract class BackgroundJobRunTablesMigrationBase : MigrationBase
             .WithColumn(nameof(BackgroundJobRunLogDto.RunId)).AsGuid().NotNullable()
             .WithColumn(nameof(BackgroundJobRunLogDto.Level)).AsString(64).NotNullable()
             .WithColumn(nameof(BackgroundJobRunLogDto.Message)).AsString(4000).NotNullable()
-            .WithColumn(nameof(BackgroundJobRunLogDto.LoggedAt)).AsDateTime().NotNullable();
+            .WithColumn(nameof(BackgroundJobRunLogDto.LoggedAt)).AsDateTime().NotNullable()
+            .Do();
 }
 
 internal sealed class CreateBackgroundJobRunTablesMigration : BackgroundJobRunTablesMigrationBase

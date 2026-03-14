@@ -18,6 +18,7 @@ namespace JobsJobsJobs.Composers
     {
         public void Compose(IUmbracoBuilder builder)
         {
+            builder.Services.AddSingleton<IBackgroundJobRunExecutionContextAccessor, BackgroundJobRunExecutionContextAccessor>();
             builder.Services.AddSingleton<IBackgroundJobDashboardStateStore, BackgroundJobDashboardStateStore>();
             builder.Services.AddSingleton<IBackgroundJobDashboardService, BackgroundJobDashboardService>();
             builder.Services.AddSingleton<IBackgroundJobManualTriggerDispatcher, BackgroundJobManualTriggerDispatcher>();
