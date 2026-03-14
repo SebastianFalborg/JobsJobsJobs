@@ -15,25 +15,27 @@ namespace JobsJobsJobs.BackgroundJobs;
 
 public interface IBackgroundJobDashboardStateStore
 {
-    IReadOnlyCollection<BackgroundJobDashboardItem> GetAll();
+    public IReadOnlyCollection<BackgroundJobDashboardItem> GetAll();
 
-    bool TryGet(string alias, out BackgroundJobDashboardItem item);
+    public bool TryGet(string alias, out BackgroundJobDashboardItem item);
 
-    void MarkRunning(IRecurringBackgroundJob job);
+    public bool TryMarkRunning(IRecurringBackgroundJob job);
 
-    void MarkCompleted(IRecurringBackgroundJob job, BackgroundJobStatus status, EventMessages messages, IDictionary<string, object?>? state = null);
+    public void MarkRunning(IRecurringBackgroundJob job);
 
-    void MarkFailed(IRecurringBackgroundJob job, EventMessages messages, IDictionary<string, object?>? state = null);
+    public void MarkCompleted(IRecurringBackgroundJob job, BackgroundJobStatus status, EventMessages messages, IDictionary<string, object?>? state = null);
+
+    public void MarkFailed(IRecurringBackgroundJob job, EventMessages messages, IDictionary<string, object?>? state = null);
 }
 
 public interface IBackgroundJobDashboardService
 {
-    IReadOnlyCollection<BackgroundJobDashboardItem> GetJobs();
+    public IReadOnlyCollection<BackgroundJobDashboardItem> GetJobs();
 }
 
 public interface IBackgroundJobManualTriggerDispatcher
 {
-    Task<BackgroundJobTriggerResult> TriggerAsync(string alias);
+    public Task<BackgroundJobTriggerResult> TriggerAsync(string alias);
 }
 
 internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboardStateStore
@@ -68,6 +70,50 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         return false;
     }
 
+    public bool TryMarkRunning(IRecurringBackgroundJob job)
+    {
+        var alias = BackgroundJobDashboardNaming.GetAlias(job);
+
+        while (true)
+        {
+            if (_items.TryGetValue(alias, out BackgroundJobDashboardItem? existing))
+            {
+                if (existing.IsRunning)
+                {
+                    return false;
+                }
+
+                var updated = Clone(existing);
+                updated.IsRunning = true;
+                updated.LastStartedAt = DateTime.UtcNow;
+                updated.LastStatus = BackgroundJobStatus.Running;
+                updated.LastMessage = null;
+                updated.LastError = null;
+
+                if (_items.TryUpdate(alias, updated, existing))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            var item = _definitions.TryGetValue(alias, out BackgroundJobDashboardItem? definition)
+                ? Clone(definition)
+                : CreateDefinition(job);
+            item.IsRunning = true;
+            item.LastStartedAt = DateTime.UtcNow;
+            item.LastStatus = BackgroundJobStatus.Running;
+            item.LastMessage = null;
+            item.LastError = null;
+
+            if (_items.TryAdd(alias, item))
+            {
+                return true;
+            }
+        }
+    }
+
     public void MarkRunning(IRecurringBackgroundJob job)
         => Update(job, item =>
         {
@@ -83,6 +129,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         {
             item.IsRunning = false;
             item.LastCompletedAt = DateTime.UtcNow;
+            item.LastDuration = item.LastStartedAt.HasValue ? item.LastCompletedAt - item.LastStartedAt.Value : null;
             item.LastStatus = status;
             item.LastMessage = ResolveMessage(messages, state);
             if (status == BackgroundJobStatus.Succeeded)
@@ -97,6 +144,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         {
             item.IsRunning = false;
             item.LastCompletedAt = DateTime.UtcNow;
+            item.LastDuration = item.LastStartedAt.HasValue ? item.LastCompletedAt - item.LastStartedAt.Value : null;
             item.LastFailedAt = item.LastCompletedAt;
             item.LastStatus = BackgroundJobStatus.Failed;
             item.LastMessage = ResolveMessage(messages, state);
@@ -149,6 +197,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
             IsRunning = item.IsRunning,
             LastStartedAt = item.LastStartedAt,
             LastCompletedAt = item.LastCompletedAt,
+            LastDuration = item.LastDuration,
             LastSucceededAt = item.LastSucceededAt,
             LastFailedAt = item.LastFailedAt,
             LastStatus = item.LastStatus,
@@ -180,10 +229,48 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
 internal sealed class BackgroundJobDashboardService : IBackgroundJobDashboardService
 {
     private readonly IBackgroundJobDashboardStateStore _stateStore;
+    private readonly IBackgroundJobRunHistoryService _runHistoryService;
 
-    public BackgroundJobDashboardService(IBackgroundJobDashboardStateStore stateStore) => _stateStore = stateStore;
+    public BackgroundJobDashboardService(IBackgroundJobDashboardStateStore stateStore, IBackgroundJobRunHistoryService runHistoryService)
+    {
+        _stateStore = stateStore;
+        _runHistoryService = runHistoryService;
+    }
 
-    public IReadOnlyCollection<BackgroundJobDashboardItem> GetJobs() => _stateStore.GetAll();
+    public IReadOnlyCollection<BackgroundJobDashboardItem> GetJobs()
+    {
+        BackgroundJobDashboardItem[] items = _stateStore.GetAll().Select(item => new BackgroundJobDashboardItem
+        {
+            Alias = item.Alias,
+            Name = item.Name,
+            Type = item.Type,
+            Period = item.Period,
+            Delay = item.Delay,
+            ServerRoles = item.ServerRoles,
+            AllowManualTrigger = item.AllowManualTrigger,
+            IsRunning = item.IsRunning,
+            LastStartedAt = item.LastStartedAt,
+            LastCompletedAt = item.LastCompletedAt,
+            LastDuration = item.LastDuration,
+            LastSucceededAt = item.LastSucceededAt,
+            LastFailedAt = item.LastFailedAt,
+            LastStatus = item.LastStatus,
+            LastError = item.LastError,
+            LastMessage = item.LastMessage,
+            LatestRun = item.LatestRun,
+        }).ToArray();
+        IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> latestRuns = _runHistoryService.GetLatestRuns(items.Select(x => x.Alias));
+
+        foreach (BackgroundJobDashboardItem item in items)
+        {
+            if (latestRuns.TryGetValue(item.Alias, out BackgroundJobRunHistoryItem? latestRun))
+            {
+                item.LatestRun = latestRun;
+            }
+        }
+
+        return items;
+    }
 }
 
 internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManualTriggerDispatcher
@@ -191,6 +278,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
     private readonly IReadOnlyDictionary<string, IRecurringBackgroundJob> _jobs;
     private readonly ILogger<BackgroundJobManualTriggerDispatcher> _logger;
     private readonly IMainDom _mainDom;
+    private readonly IBackgroundJobRunRecorder _runRecorder;
     private readonly IRuntimeState _runtimeState;
     private readonly IServerRoleAccessor _serverRoleAccessor;
     private readonly IBackgroundJobDashboardStateStore _stateStore;
@@ -198,12 +286,14 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
     public BackgroundJobManualTriggerDispatcher(
         IEnumerable<IRecurringBackgroundJob> jobs,
         IBackgroundJobDashboardStateStore stateStore,
+        IBackgroundJobRunRecorder runRecorder,
         IRuntimeState runtimeState,
         IMainDom mainDom,
         IServerRoleAccessor serverRoleAccessor,
         ILogger<BackgroundJobManualTriggerDispatcher> logger)
     {
         _stateStore = stateStore;
+        _runRecorder = runRecorder;
         _runtimeState = runtimeState;
         _mainDom = mainDom;
         _serverRoleAccessor = serverRoleAccessor;
@@ -222,15 +312,6 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
             };
         }
 
-        if (_stateStore.TryGet(alias, out BackgroundJobDashboardItem state) && state.IsRunning)
-        {
-            return new BackgroundJobTriggerResult
-            {
-                Status = BackgroundJobTriggerOperationStatus.AlreadyRunning,
-                Message = $"The background job '{alias}' is already running.",
-            };
-        }
-
         if (_runtimeState.Level != RuntimeLevel.Run)
         {
             return NotAllowed("The application is not in the Run runtime state.");
@@ -246,8 +327,18 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
             return NotAllowed("The current server is not MainDom.");
         }
 
+        if (_stateStore.TryMarkRunning(job) is false)
+        {
+            return new BackgroundJobTriggerResult
+            {
+                Status = BackgroundJobTriggerOperationStatus.AlreadyRunning,
+                Message = $"The background job '{alias}' is already running.",
+            };
+        }
+
         var messages = new EventMessages();
-        _stateStore.MarkRunning(job);
+        _runRecorder.MarkStarted(job, BackgroundJobRunTrigger.Manual);
+        _runRecorder.WriteLog(alias, BackgroundJobRunLogLevel.Information, "Manually triggered");
 
         try
         {
@@ -257,7 +348,12 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
                 job,
                 BackgroundJobStatus.Succeeded,
                 messages,
-                new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = "Manually triggered" });
+                new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = "Manual run completed successfully." });
+            _runRecorder.MarkCompleted(
+                job,
+                BackgroundJobStatus.Succeeded,
+                messages,
+                new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = "Manual run completed successfully." });
 
             return new BackgroundJobTriggerResult
             {
@@ -275,7 +371,15 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
                 new Dictionary<string, object?>
                 {
                     [BackgroundJobDashboardStateKeys.ErrorMessage] = ex.Message,
-                    [BackgroundJobDashboardStateKeys.Message] = "Manual trigger failed",
+                    [BackgroundJobDashboardStateKeys.Message] = "Manual run failed.",
+                });
+            _runRecorder.MarkFailed(
+                job,
+                messages,
+                new Dictionary<string, object?>
+                {
+                    [BackgroundJobDashboardStateKeys.ErrorMessage] = ex.Message,
+                    [BackgroundJobDashboardStateKeys.Message] = "Manual run failed.",
                 });
 
             return new BackgroundJobTriggerResult

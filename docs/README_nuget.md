@@ -6,42 +6,6 @@
 
 Jobs Jobs Jobs adds a backoffice dashboard for recurring Umbraco background jobs, including runtime status and manual triggering.
 
-## Build
-
-Run the client build from the repository root:
-
-```powershell
-npm run build
-```
-
-Or run it directly from the client project:
-
-```powershell
-npm run build
-```
-
-in:
-
-```text
-src/JobsJobsJobs/Client
-```
-
-## Pack
-
-Create the NuGet package from:
-
-```text
-src/JobsJobsJobs
-```
-
-with:
-
-```powershell
-dotnet pack -c Release
-```
-
-`dotnet pack` automatically runs the client build before packaging.
-
 ## Install
 
 Add the generated NuGet package to an Umbraco 17 site and restart the application.
@@ -104,6 +68,115 @@ internal sealed class MyBackgroundJobsComposer : IComposer
 ```
 
 Restart the application and open `Settings -> Background Jobs` in the Umbraco backoffice.
+
+## Persisted run logs
+
+The package now stores the latest runs and log lines for each job in the database.
+
+If you want your own job to write detailed run logs to the dashboard, inject `IBackgroundJobRunLogWriter<TJob>` into the job and write log lines while the job is running:
+
+```csharp
+using System;
+using System.Threading.Tasks;
+using JobsJobsJobs.BackgroundJobs;
+using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Core.Sync;
+using Umbraco.Cms.Infrastructure.BackgroundJobs;
+
+namespace MyUmbracoSite;
+
+internal sealed class MyLoggedBackgroundJob : IRecurringBackgroundJob
+{
+    private readonly ILogger<MyLoggedBackgroundJob> _logger;
+    private readonly IBackgroundJobRunLogWriter<MyLoggedBackgroundJob> _logWriter;
+
+    public MyLoggedBackgroundJob(
+        ILogger<MyLoggedBackgroundJob> logger,
+        IBackgroundJobRunLogWriter<MyLoggedBackgroundJob> logWriter)
+    {
+        _logger = logger;
+        _logWriter = logWriter;
+    }
+
+    public TimeSpan Period => TimeSpan.FromMinutes(15);
+
+    public TimeSpan Delay => TimeSpan.FromMinutes(1);
+
+    public ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
+
+    public event EventHandler? PeriodChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public Task RunJobAsync()
+    {
+        _logger.LogInformation("MyLoggedBackgroundJob started at {Time}", DateTime.UtcNow);
+        _logWriter.Information("Starting import phase");
+        _logWriter.Information("Imported 42 records");
+        _logWriter.Warning("Skipped 2 invalid rows");
+        _logWriter.Information("Finished cleanup phase");
+        return Task.CompletedTask;
+    }
+}
+```
+
+You do not need to register `IBackgroundJobRunLogWriter<TJob>` yourself. The package registers it automatically.
+
+The package also automatically:
+
+- persists start/end/status for automatic job runs
+- persists start/end/status for manual triggers from the dashboard
+- stores log entries written with `IBackgroundJobRunLogWriter<TJob>` on the current active run
+- exposes the latest stored run and log lines in the dashboard API and UI
+
+The only thing you need to do in your own job is inject and use `IBackgroundJobRunLogWriter<TJob>`.
+
+## Database tables
+
+The package writes to these tables:
+
+```text
+JobsJobsJobsBackgroundJobRun
+JobsJobsJobsBackgroundJobRunLog
+```
+
+`JobsJobsJobsBackgroundJobRun` stores one row per run.
+
+`JobsJobsJobsBackgroundJobRunLog` stores the log lines for a run and links back via `RunId`.
+
+## Check persisted runs in the database
+
+In the test site, the default development database is SQLite:
+
+```text
+src/JobsJobsJobs.TestSite/umbraco/Data/Umbraco.sqlite.db
+```
+
+Example SQL:
+
+```sql
+select *
+from JobsJobsJobsBackgroundJobRun
+order by StartedAt desc;
+
+select *
+from JobsJobsJobsBackgroundJobRunLog
+order by LoggedAt desc;
+
+select r.Id,
+       r.JobAlias,
+       r.Status,
+       r.StartedAt,
+       r.CompletedAt,
+       l.Level,
+       l.Message,
+       l.LoggedAt
+from JobsJobsJobsBackgroundJobRun r
+left join JobsJobsJobsBackgroundJobRunLog l on l.RunId = r.Id
+order by r.StartedAt desc, l.LoggedAt asc;
+```
 
 ## Use
 

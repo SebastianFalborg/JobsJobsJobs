@@ -50,6 +50,8 @@ public class BackgroundJobDashboardItem
 
     public DateTime? LastCompletedAt { get; set; }
 
+    public TimeSpan? LastDuration { get; set; }
+
     public DateTime? LastSucceededAt { get; set; }
 
     public DateTime? LastFailedAt { get; set; }
@@ -59,6 +61,8 @@ public class BackgroundJobDashboardItem
     public string? LastError { get; set; }
 
     public string? LastMessage { get; set; }
+
+    public BackgroundJobRunHistoryItem? LatestRun { get; set; }
 }
 
 public class BackgroundJobTriggerResult
@@ -70,11 +74,15 @@ public class BackgroundJobTriggerResult
 
 internal static class BackgroundJobDashboardNaming
 {
-    internal static string GetAlias(IRecurringBackgroundJob job) => job.GetType().Name;
+    internal static string GetAlias(IRecurringBackgroundJob job) => GetAlias(job.GetType());
 
-    internal static string GetDisplayName(IRecurringBackgroundJob job)
+    internal static string GetAlias(Type jobType) => jobType.FullName ?? jobType.Name;
+
+    internal static string GetDisplayName(IRecurringBackgroundJob job) => GetDisplayName(job.GetType());
+
+    internal static string GetDisplayName(Type jobType)
     {
-        var name = job.GetType().Name;
+        var name = jobType.Name;
         return name.EndsWith("Job", StringComparison.Ordinal) ? name[..^3] : name;
     }
 }

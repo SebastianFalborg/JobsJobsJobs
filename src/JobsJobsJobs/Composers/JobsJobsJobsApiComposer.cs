@@ -21,11 +21,16 @@ namespace JobsJobsJobs.Composers
             builder.Services.AddSingleton<IBackgroundJobDashboardStateStore, BackgroundJobDashboardStateStore>();
             builder.Services.AddSingleton<IBackgroundJobDashboardService, BackgroundJobDashboardService>();
             builder.Services.AddSingleton<IBackgroundJobManualTriggerDispatcher, BackgroundJobManualTriggerDispatcher>();
+            builder.Services.AddSingleton<BackgroundJobRunStore>();
+            builder.Services.AddSingleton<IBackgroundJobRunHistoryService>(x => x.GetRequiredService<BackgroundJobRunStore>());
+            builder.Services.AddSingleton<IBackgroundJobRunRecorder>(x => x.GetRequiredService<BackgroundJobRunStore>());
+            builder.Services.AddTransient(typeof(IBackgroundJobRunLogWriter<>), typeof(BackgroundJobRunLogWriter<>));
 
             builder.AddNotificationAsyncHandler<RecurringBackgroundJobExecutingNotification, BackgroundJobDashboardNotificationHandler>();
             builder.AddNotificationAsyncHandler<RecurringBackgroundJobExecutedNotification, BackgroundJobDashboardNotificationHandler>();
             builder.AddNotificationAsyncHandler<RecurringBackgroundJobFailedNotification, BackgroundJobDashboardNotificationHandler>();
             builder.AddNotificationAsyncHandler<RecurringBackgroundJobIgnoredNotification, BackgroundJobDashboardNotificationHandler>();
+            builder.AddNotificationAsyncHandler<Umbraco.Cms.Core.Notifications.UmbracoApplicationStartingNotification, BackgroundJobRunMigrationHandler>();
 
             builder.Services.AddSingleton<IOperationIdHandler, CustomOperationHandler>();
 

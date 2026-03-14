@@ -25,6 +25,8 @@ public class BackgroundJobDashboardItemResponseModel
 
     public DateTime? LastCompletedAt { get; set; }
 
+    public TimeSpan? LastDuration { get; set; }
+
     public DateTime? LastSucceededAt { get; set; }
 
     public DateTime? LastFailedAt { get; set; }
@@ -34,6 +36,38 @@ public class BackgroundJobDashboardItemResponseModel
     public string? LastError { get; set; }
 
     public string? LastMessage { get; set; }
+
+    public BackgroundJobDashboardRunResponseModel? LatestRun { get; set; }
+}
+
+public class BackgroundJobDashboardRunResponseModel
+{
+    public Guid Id { get; set; }
+
+    public string Trigger { get; set; } = string.Empty;
+
+    public string Status { get; set; } = string.Empty;
+
+    public DateTime StartedAt { get; set; }
+
+    public DateTime? CompletedAt { get; set; }
+
+    public TimeSpan? Duration { get; set; }
+
+    public string? Message { get; set; }
+
+    public string? Error { get; set; }
+
+    public IEnumerable<BackgroundJobDashboardRunLogResponseModel> Logs { get; set; } = Array.Empty<BackgroundJobDashboardRunLogResponseModel>();
+}
+
+public class BackgroundJobDashboardRunLogResponseModel
+{
+    public DateTime LoggedAt { get; set; }
+
+    public string Level { get; set; } = string.Empty;
+
+    public string Message { get; set; } = string.Empty;
 }
 
 public class BackgroundJobDashboardCollectionResponseModel

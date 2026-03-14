@@ -40,11 +40,31 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
                 IsRunning = x.IsRunning,
                 LastStartedAt = x.LastStartedAt,
                 LastCompletedAt = x.LastCompletedAt,
+                LastDuration = x.LastDuration,
                 LastSucceededAt = x.LastSucceededAt,
                 LastFailedAt = x.LastFailedAt,
                 LastStatus = x.LastStatus.ToString(),
                 LastError = x.LastError,
                 LastMessage = x.LastMessage,
+                LatestRun = x.LatestRun is null
+                    ? null
+                    : new BackgroundJobDashboardRunResponseModel
+                    {
+                        Id = x.LatestRun.Id,
+                        Trigger = x.LatestRun.Trigger,
+                        Status = x.LatestRun.Status.ToString(),
+                        StartedAt = x.LatestRun.StartedAt,
+                        CompletedAt = x.LatestRun.CompletedAt,
+                        Duration = x.LatestRun.Duration,
+                        Message = x.LatestRun.Message,
+                        Error = x.LatestRun.Error,
+                        Logs = x.LatestRun.Logs.Select(log => new BackgroundJobDashboardRunLogResponseModel
+                        {
+                            LoggedAt = log.LoggedAt,
+                            Level = log.Level,
+                            Message = log.Message,
+                        }),
+                    },
             })
             .ToArray();
 
