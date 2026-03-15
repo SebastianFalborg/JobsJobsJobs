@@ -28,6 +28,8 @@ public interface IBackgroundJobDashboardStateStore
 
     public void MarkRunning(IRecurringBackgroundJob job);
 
+    public void MarkStopRequested(IRecurringBackgroundJob job);
+
     public void MarkCompleted(IRecurringBackgroundJob job, BackgroundJobStatus status, EventMessages messages, IDictionary<string, object?>? state = null);
 
     public void MarkFailed(IRecurringBackgroundJob job, EventMessages messages, IDictionary<string, object?>? state = null);
@@ -41,6 +43,11 @@ public interface IBackgroundJobDashboardService
 public interface IBackgroundJobManualTriggerDispatcher
 {
     public Task<BackgroundJobTriggerResult> TriggerAsync(string alias);
+}
+
+public interface IBackgroundJobStopDispatcher
+{
+    public BackgroundJobStopResult RequestStop(string alias);
 }
 
 internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboardStateStore
@@ -119,12 +126,14 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         Update(job, item =>
         {
             item.IsRunning = remainingExecutions > 0;
+            item.StopRequested = remainingExecutions > 0 && item.StopRequested;
 
             if (remainingExecutions == 0 && item.LastStatus == BackgroundJobStatus.Running)
             {
                 item.LastStatus = BackgroundJobStatus.Idle;
                 item.LastMessage = null;
                 item.LastError = null;
+                item.StopRequested = false;
             }
         });
     }
@@ -141,9 +150,25 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         Update(job, item =>
         {
             item.IsRunning = true;
+            item.StopRequested = false;
             item.LastStartedAt = startedAt;
             item.LastStatus = BackgroundJobStatus.Running;
             item.LastMessage = null;
+            item.LastError = null;
+        });
+    }
+
+    public void MarkStopRequested(IRecurringBackgroundJob job)
+    {
+        if (ShouldInclude(job) is false)
+        {
+            return;
+        }
+
+        Update(job, item =>
+        {
+            item.StopRequested = true;
+            item.LastMessage = "Stop requested.";
             item.LastError = null;
         });
     }
@@ -162,15 +187,21 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         Update(job, item =>
         {
             item.IsRunning = remainingExecutions > 0;
+            item.StopRequested = remainingExecutions > 0 && item.StopRequested;
             item.LastCompletedAt = completedAt;
             item.LastDuration = startedAt.HasValue
                 ? completedAt - startedAt.Value
                 : item.LastStartedAt.HasValue ? completedAt - item.LastStartedAt.Value : null;
             item.LastStatus = status;
             item.LastMessage = ResolveMessage(messages, state);
+            item.LastError = status == BackgroundJobStatus.Failed ? item.LastError : null;
             if (status == BackgroundJobStatus.Succeeded)
             {
                 item.LastSucceededAt = item.LastCompletedAt;
+                item.LastError = null;
+            }
+            else if (status == BackgroundJobStatus.Stopped)
+            {
                 item.LastError = null;
             }
         });
@@ -190,6 +221,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         Update(job, item =>
         {
             item.IsRunning = remainingExecutions > 0;
+            item.StopRequested = remainingExecutions > 0 && item.StopRequested;
             item.LastCompletedAt = completedAt;
             item.LastDuration = startedAt.HasValue
                 ? completedAt - startedAt.Value
@@ -293,6 +325,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
             Period = job.Period,
             ServerRoles = job.ServerRoles,
             AllowManualTrigger = true,
+            CanStop = BackgroundJobDashboardNaming.SupportsStop(job),
             LastStatus = BackgroundJobStatus.Idle,
         };
 
@@ -306,7 +339,9 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
             Delay = item.Delay,
             ServerRoles = item.ServerRoles,
             AllowManualTrigger = item.AllowManualTrigger,
+            CanStop = item.CanStop,
             IsRunning = item.IsRunning,
+            StopRequested = item.StopRequested,
             LastStartedAt = item.LastStartedAt,
             LastCompletedAt = item.LastCompletedAt,
             LastDuration = item.LastDuration,
@@ -360,7 +395,9 @@ internal sealed class BackgroundJobDashboardService : IBackgroundJobDashboardSer
             Delay = item.Delay,
             ServerRoles = item.ServerRoles,
             AllowManualTrigger = item.AllowManualTrigger,
+            CanStop = item.CanStop,
             IsRunning = item.IsRunning,
+            StopRequested = item.StopRequested,
             LastStartedAt = item.LastStartedAt,
             LastCompletedAt = item.LastCompletedAt,
             LastDuration = item.LastDuration,
@@ -416,6 +453,9 @@ internal sealed class BackgroundJobDashboardService : IBackgroundJobDashboardSer
                 item.LastStatus = BackgroundJobStatus.Failed;
                 item.LastFailedAt ??= latestRun.CompletedAt;
                 break;
+            case BackgroundJobStatus.Stopped:
+                item.LastStatus = BackgroundJobStatus.Stopped;
+                break;
             case BackgroundJobStatus.Ignored:
                 item.LastStatus = BackgroundJobStatus.Ignored;
                 break;
@@ -440,6 +480,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
     private readonly ILogger<BackgroundJobManualTriggerDispatcher> _logger;
     private readonly IMainDom _mainDom;
     private readonly IBackgroundJobRunRecorder _runRecorder;
+    private readonly IBackgroundJobStopCoordinator _stopCoordinator;
     private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
     private readonly IRuntimeState _runtimeState;
     private readonly IServerRoleAccessor _serverRoleAccessor;
@@ -449,6 +490,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
         IEnumerable<IRecurringBackgroundJob> jobs,
         IBackgroundJobDashboardStateStore stateStore,
         IBackgroundJobRunRecorder runRecorder,
+        IBackgroundJobStopCoordinator stopCoordinator,
         IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor,
         IOptions<BackgroundJobDashboardOptions> options,
         IRuntimeState runtimeState,
@@ -458,6 +500,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
     {
         _stateStore = stateStore;
         _runRecorder = runRecorder;
+        _stopCoordinator = stopCoordinator;
         _runExecutionContextAccessor = runExecutionContextAccessor;
         _options = options.Value;
         _runtimeState = runtimeState;
@@ -495,10 +538,13 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
             return NotAllowed("The current server is not MainDom.");
         }
 
-        _runExecutionContextAccessor.Set(_runExecutionContextAccessor.Create(job, BackgroundJobRunTrigger.Manual));
+        BackgroundJobRunExecutionContext context = _runExecutionContextAccessor.Create(job, BackgroundJobRunTrigger.Manual);
+        _runExecutionContextAccessor.Set(context);
+        _stopCoordinator.Register(job, context);
 
         if (_stateStore.TryBeginExecution(job) is false)
         {
+            _stopCoordinator.Complete(context.RunId);
             _runExecutionContextAccessor.Clear();
             return new BackgroundJobTriggerResult
             {
@@ -519,26 +565,61 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
             runningStateMarked = true;
             _runRecorder.WriteLog(alias, BackgroundJobRunLogLevel.Information, "Manually triggered");
             await job.RunJobAsync();
-            messages.Add(new EventMessage("Background job", "The job completed successfully.", EventMessageType.Success));
+            var completionStatus = _stopCoordinator.IsStopRequested(context.RunId)
+                ? BackgroundJobStatus.Stopped
+                : BackgroundJobStatus.Succeeded;
+            var completionMessage = completionStatus == BackgroundJobStatus.Stopped
+                ? "Manual run stopped."
+                : "Manual run completed successfully.";
+            messages.Add(new EventMessage("Background job", completionMessage, EventMessageType.Success));
             _stateStore.MarkCompleted(
                 job,
-                BackgroundJobStatus.Succeeded,
+                completionStatus,
                 messages,
-                new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = "Manual run completed successfully." });
+                new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = completionMessage });
             _runRecorder.MarkCompleted(
                 job,
-                BackgroundJobStatus.Succeeded,
+                completionStatus,
                 messages,
-                new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = "Manual run completed successfully." });
+                new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = completionMessage });
 
             return new BackgroundJobTriggerResult
             {
                 Status = BackgroundJobTriggerOperationStatus.Success,
-                Message = "The job completed successfully.",
+                Message = completionStatus == BackgroundJobStatus.Stopped ? "The job stopped." : "The job completed successfully.",
             };
         }
         catch (Exception ex)
         {
+            if (_stopCoordinator.IsStopRequested(context.RunId))
+            {
+                messages.Add(new EventMessage("Background job", "Manual run stopped.", EventMessageType.Warning));
+
+                if (runPersisted is false)
+                {
+                    _stateStore.AbortExecution(job);
+                }
+                else
+                {
+                    _stateStore.MarkCompleted(
+                        job,
+                        BackgroundJobStatus.Stopped,
+                        messages,
+                        new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = "Manual run stopped." });
+                    _runRecorder.MarkCompleted(
+                        job,
+                        BackgroundJobStatus.Stopped,
+                        messages,
+                        new Dictionary<string, object?> { [BackgroundJobDashboardStateKeys.Message] = "Manual run stopped." });
+                }
+
+                return new BackgroundJobTriggerResult
+                {
+                    Status = BackgroundJobTriggerOperationStatus.Success,
+                    Message = "The job stopped.",
+                };
+            }
+
             _logger.LogError(ex, "Unhandled exception while manually running recurring background job {JobAlias}", alias);
             messages.Add(new EventMessage("Background job", ex.Message, EventMessageType.Error));
 
@@ -582,6 +663,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
         }
         finally
         {
+            _stopCoordinator.Complete(context.RunId);
             _runExecutionContextAccessor.Clear();
         }
     }
@@ -592,4 +674,91 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
             Status = BackgroundJobTriggerOperationStatus.NotAllowed,
             Message = message,
         };
+}
+
+internal sealed class BackgroundJobStopDispatcher : IBackgroundJobStopDispatcher
+{
+    private readonly IReadOnlyDictionary<string, IRecurringBackgroundJob> _jobs;
+    private readonly BackgroundJobDashboardOptions _options;
+    private readonly IBackgroundJobRunRecorder _runRecorder;
+    private readonly IBackgroundJobDashboardStateStore _stateStore;
+    private readonly IBackgroundJobStopCoordinator _stopCoordinator;
+
+    public BackgroundJobStopDispatcher(
+        IEnumerable<IRecurringBackgroundJob> jobs,
+        IBackgroundJobDashboardStateStore stateStore,
+        IBackgroundJobRunRecorder runRecorder,
+        IBackgroundJobStopCoordinator stopCoordinator,
+        IOptions<BackgroundJobDashboardOptions> options)
+    {
+        _stateStore = stateStore;
+        _runRecorder = runRecorder;
+        _stopCoordinator = stopCoordinator;
+        _options = options.Value;
+        _jobs = jobs
+            .Where(job => BackgroundJobDashboardNaming.ShouldInclude(job, _options))
+            .ToDictionary(BackgroundJobDashboardNaming.GetAlias, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public BackgroundJobStopResult RequestStop(string alias)
+    {
+        if (_jobs.TryGetValue(alias, out IRecurringBackgroundJob? job) is false)
+        {
+            return new BackgroundJobStopResult
+            {
+                Status = BackgroundJobStopOperationStatus.NotFound,
+                Message = $"No recurring background job found for alias '{alias}'.",
+            };
+        }
+
+        if (_stateStore.TryGet(alias, out BackgroundJobDashboardItem? item) is false || item.IsRunning is false)
+        {
+            return new BackgroundJobStopResult
+            {
+                Status = BackgroundJobStopOperationStatus.NotRunning,
+                Message = $"The background job '{alias}' is not currently running.",
+            };
+        }
+
+        if (item.CanStop is false)
+        {
+            return new BackgroundJobStopResult
+            {
+                Status = BackgroundJobStopOperationStatus.NotSupported,
+                Message = $"The background job '{alias}' does not support stopping.",
+            };
+        }
+
+        BackgroundJobStopRequestState result = _stopCoordinator.RequestStop(alias);
+
+        switch (result)
+        {
+            case BackgroundJobStopRequestState.Success:
+                _stateStore.MarkStopRequested(job);
+                _runRecorder.WriteLog(alias, BackgroundJobRunLogLevel.Warning, "Stop requested.");
+                return new BackgroundJobStopResult
+                {
+                    Status = BackgroundJobStopOperationStatus.Success,
+                    Message = "Stop requested.",
+                };
+            case BackgroundJobStopRequestState.AlreadyRequested:
+                return new BackgroundJobStopResult
+                {
+                    Status = BackgroundJobStopOperationStatus.AlreadyRequested,
+                    Message = "Stop has already been requested for this job.",
+                };
+            case BackgroundJobStopRequestState.NotSupported:
+                return new BackgroundJobStopResult
+                {
+                    Status = BackgroundJobStopOperationStatus.NotSupported,
+                    Message = $"The background job '{alias}' does not support stopping.",
+                };
+            default:
+                return new BackgroundJobStopResult
+                {
+                    Status = BackgroundJobStopOperationStatus.NotRunning,
+                    Message = $"The background job '{alias}' is not currently running.",
+                };
+        }
+    }
 }

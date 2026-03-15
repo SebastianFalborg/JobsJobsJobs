@@ -19,7 +19,11 @@ public class BackgroundJobDashboardItemResponseModel
 
     public bool AllowManualTrigger { get; set; }
 
+    public bool CanStop { get; set; }
+
     public bool IsRunning { get; set; }
+
+    public bool StopRequested { get; set; }
 
     public DateTime? LastStartedAt { get; set; }
 

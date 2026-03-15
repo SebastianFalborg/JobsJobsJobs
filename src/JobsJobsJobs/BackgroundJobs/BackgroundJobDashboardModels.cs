@@ -21,6 +21,7 @@ public enum BackgroundJobStatus
     Running,
     Succeeded,
     Failed,
+    Stopped,
     Ignored,
 }
 
@@ -31,6 +32,15 @@ public enum BackgroundJobTriggerOperationStatus
     AlreadyRunning,
     NotAllowed,
     Failed,
+}
+
+public enum BackgroundJobStopOperationStatus
+{
+    Success,
+    NotFound,
+    NotRunning,
+    NotSupported,
+    AlreadyRequested,
 }
 
 public class BackgroundJobDashboardItem
@@ -49,7 +59,11 @@ public class BackgroundJobDashboardItem
 
     public bool AllowManualTrigger { get; set; } = true;
 
+    public bool CanStop { get; set; }
+
     public bool IsRunning { get; set; }
+
+    public bool StopRequested { get; set; }
 
     public DateTime? LastStartedAt { get; set; }
 
@@ -77,6 +91,13 @@ public class BackgroundJobTriggerResult
     public BackgroundJobTriggerOperationStatus Status { get; init; }
 }
 
+public class BackgroundJobStopResult
+{
+    public string? Message { get; init; }
+
+    public BackgroundJobStopOperationStatus Status { get; init; }
+}
+
 internal static class BackgroundJobDashboardNaming
 {
     internal static string GetAlias(IRecurringBackgroundJob job) => GetAlias(job.GetType());
@@ -93,6 +114,8 @@ internal static class BackgroundJobDashboardNaming
 
     internal static bool ShouldInclude(string alias, BackgroundJobDashboardOptions options)
         => options.IncludeUmbracoJobs || alias.StartsWith("Umbraco.", StringComparison.Ordinal) is false;
+
+    internal static bool SupportsStop(IRecurringBackgroundJob job) => job is IStoppableRecurringBackgroundJob;
 
     internal static string GetDisplayName(IRecurringBackgroundJob job) => GetDisplayName(job.GetType());
 

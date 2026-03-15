@@ -10,5 +10,6 @@ internal sealed class DashboardSmokeTestComposer : IComposer
     public void Compose(IUmbracoBuilder builder)
     {
         builder.Services.AddRecurringBackgroundJob<DashboardSmokeTestJob>();
+        builder.Services.AddRecurringBackgroundJob<DashboardFileWriteStopTestJob>();
     }
 }

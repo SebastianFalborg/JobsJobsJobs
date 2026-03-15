@@ -19,12 +19,15 @@ namespace JobsJobsJobs.Composers
         public void Compose(IUmbracoBuilder builder)
         {
             builder.Services.AddSingleton<IBackgroundJobRunExecutionContextAccessor, BackgroundJobRunExecutionContextAccessor>();
+            builder.Services.AddSingleton<IBackgroundJobStopCoordinator, BackgroundJobStopCoordinator>();
             builder.Services.AddSingleton<IBackgroundJobDashboardStateStore, BackgroundJobDashboardStateStore>();
             builder.Services.AddSingleton<IBackgroundJobDashboardService, BackgroundJobDashboardService>();
             builder.Services.AddSingleton<IBackgroundJobManualTriggerDispatcher, BackgroundJobManualTriggerDispatcher>();
+            builder.Services.AddSingleton<IBackgroundJobStopDispatcher, BackgroundJobStopDispatcher>();
             builder.Services.AddSingleton<BackgroundJobRunStore>();
             builder.Services.AddSingleton<IBackgroundJobRunHistoryService>(x => x.GetRequiredService<BackgroundJobRunStore>());
             builder.Services.AddSingleton<IBackgroundJobRunRecorder>(x => x.GetRequiredService<BackgroundJobRunStore>());
+            builder.Services.AddTransient<IBackgroundJobExecutionCancellation, BackgroundJobExecutionCancellation>();
             builder.Services.AddTransient(typeof(IBackgroundJobRunLogWriter<>), typeof(BackgroundJobRunLogWriter<>));
 
             builder.AddNotificationAsyncHandler<RecurringBackgroundJobExecutingNotification, BackgroundJobDashboardNotificationHandler>();

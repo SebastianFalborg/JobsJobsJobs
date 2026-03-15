@@ -1,0 +1,44 @@
+[2026-03-15 08:26:45.825 +01:00] Run 1 started.
+[2026-03-15 08:26:45.829 +01:00] Run 1 iteration 1. Stop requested: False.
+[2026-03-15 08:26:46.839 +01:00] Run 1 iteration 2. Stop requested: False.
+[2026-03-15 08:26:47.850 +01:00] Run 1 iteration 3. Stop requested: False.
+[2026-03-15 08:26:48.853 +01:00] Run 1 iteration 4. Stop requested: False.
+[2026-03-15 08:26:49.856 +01:00] Run 1 iteration 5. Stop requested: False.
+[2026-03-15 08:26:50.870 +01:00] Run 1 iteration 6. Stop requested: False.
+[2026-03-15 08:26:51.884 +01:00] Run 1 iteration 7. Stop requested: False.
+[2026-03-15 08:26:52.890 +01:00] Run 1 iteration 8. Stop requested: False.
+[2026-03-15 08:26:53.658 +01:00] Run 1 observed stop request and is shutting down cleanly.
+[2026-03-15 08:28:45.043 +01:00] Run 2 started.
+[2026-03-15 08:28:45.045 +01:00] Run 2 iteration 1. Stop requested: False.
+[2026-03-15 08:28:46.054 +01:00] Run 2 iteration 2. Stop requested: False.
+[2026-03-15 08:28:47.067 +01:00] Run 2 iteration 3. Stop requested: False.
+[2026-03-15 08:28:48.081 +01:00] Run 2 iteration 4. Stop requested: False.
+[2026-03-15 08:28:49.098 +01:00] Run 2 iteration 5. Stop requested: False.
+[2026-03-15 08:28:50.112 +01:00] Run 2 iteration 6. Stop requested: False.
+[2026-03-15 08:28:50.622 +01:00] Run 2 observed stop request and is shutting down cleanly.
+[2026-03-15 08:30:24.873 +01:00] Run 3 started.
+[2026-03-15 08:30:24.875 +01:00] Run 3 iteration 1. Stop requested: False.
+[2026-03-15 08:30:25.884 +01:00] Run 3 iteration 2. Stop requested: False.
+[2026-03-15 08:30:26.891 +01:00] Run 3 iteration 3. Stop requested: False.
+[2026-03-15 08:30:27.903 +01:00] Run 3 iteration 4. Stop requested: False.
+[2026-03-15 08:30:28.917 +01:00] Run 3 iteration 5. Stop requested: False.
+[2026-03-15 08:30:29.928 +01:00] Run 3 iteration 6. Stop requested: False.
+[2026-03-15 08:30:30.946 +01:00] Run 3 iteration 7. Stop requested: False.
+[2026-03-15 08:30:31.960 +01:00] Run 3 iteration 8. Stop requested: False.
+[2026-03-15 08:30:32.972 +01:00] Run 3 iteration 9. Stop requested: False.
+[2026-03-15 08:30:33.981 +01:00] Run 3 iteration 10. Stop requested: False.
+[2026-03-15 08:30:34.991 +01:00] Run 3 iteration 11. Stop requested: False.
+[2026-03-15 08:30:35.063 +01:00] Run 3 observed stop request and is shutting down cleanly.
+[2026-03-15 08:31:00.299 +01:00] Run 4 started.
+[2026-03-15 08:31:00.301 +01:00] Run 4 iteration 1. Stop requested: False.
+[2026-03-15 08:31:01.313 +01:00] Run 4 iteration 2. Stop requested: False.
+[2026-03-15 08:31:02.329 +01:00] Run 4 iteration 3. Stop requested: False.
+[2026-03-15 08:31:03.339 +01:00] Run 4 iteration 4. Stop requested: False.
+[2026-03-15 08:31:04.345 +01:00] Run 4 iteration 5. Stop requested: False.
+[2026-03-15 08:31:05.360 +01:00] Run 4 iteration 6. Stop requested: False.
+[2026-03-15 08:31:06.363 +01:00] Run 4 iteration 7. Stop requested: False.
+[2026-03-15 08:31:07.379 +01:00] Run 4 iteration 8. Stop requested: False.
+[2026-03-15 08:31:08.397 +01:00] Run 4 iteration 9. Stop requested: False.
+[2026-03-15 08:31:09.418 +01:00] Run 4 iteration 10. Stop requested: False.
+[2026-03-15 08:31:10.424 +01:00] Run 4 iteration 11. Stop requested: False.
+[2026-03-15 08:31:11.377 +01:00] Run 4 observed stop request and is shutting down cleanly.

@@ -13,13 +13,16 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
 {
     private readonly IBackgroundJobDashboardService _backgroundJobDashboardService;
     private readonly IBackgroundJobManualTriggerDispatcher _backgroundJobManualTriggerDispatcher;
+    private readonly IBackgroundJobStopDispatcher _backgroundJobStopDispatcher;
 
     public BackgroundJobsController(
         IBackgroundJobDashboardService backgroundJobDashboardService,
-        IBackgroundJobManualTriggerDispatcher backgroundJobManualTriggerDispatcher)
+        IBackgroundJobManualTriggerDispatcher backgroundJobManualTriggerDispatcher,
+        IBackgroundJobStopDispatcher backgroundJobStopDispatcher)
     {
         _backgroundJobDashboardService = backgroundJobDashboardService;
         _backgroundJobManualTriggerDispatcher = backgroundJobManualTriggerDispatcher;
+        _backgroundJobStopDispatcher = backgroundJobStopDispatcher;
     }
 
     [HttpGet]
@@ -37,7 +40,9 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
                 Delay = x.Delay,
                 ServerRoles = x.ServerRoles.Select(role => role.ToString()),
                 AllowManualTrigger = x.AllowManualTrigger,
+                CanStop = x.CanStop,
                 IsRunning = x.IsRunning,
+                StopRequested = x.StopRequested,
                 LastStartedAt = x.LastStartedAt,
                 LastCompletedAt = x.LastCompletedAt,
                 LastDuration = x.LastDuration,
@@ -90,6 +95,25 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
             BackgroundJobTriggerOperationStatus.NotFound => NotFound(CreateProblemDetails(StatusCodes.Status404NotFound, result.Message)),
             BackgroundJobTriggerOperationStatus.AlreadyRunning => Conflict(CreateProblemDetails(StatusCodes.Status409Conflict, result.Message)),
             BackgroundJobTriggerOperationStatus.NotAllowed => Conflict(CreateProblemDetails(StatusCodes.Status409Conflict, result.Message)),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(StatusCodes.Status500InternalServerError, result.Message)),
+        };
+    }
+
+    [HttpPost("stop/{alias}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public IActionResult Stop(string alias)
+    {
+        BackgroundJobStopResult result = _backgroundJobStopDispatcher.RequestStop(alias);
+
+        return result.Status switch
+        {
+            BackgroundJobStopOperationStatus.Success => Ok(),
+            BackgroundJobStopOperationStatus.NotFound => NotFound(CreateProblemDetails(StatusCodes.Status404NotFound, result.Message)),
+            BackgroundJobStopOperationStatus.NotRunning => Conflict(CreateProblemDetails(StatusCodes.Status409Conflict, result.Message)),
+            BackgroundJobStopOperationStatus.NotSupported => Conflict(CreateProblemDetails(StatusCodes.Status409Conflict, result.Message)),
+            BackgroundJobStopOperationStatus.AlreadyRequested => Conflict(CreateProblemDetails(StatusCodes.Status409Conflict, result.Message)),
             _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(StatusCodes.Status500InternalServerError, result.Message)),
         };
     }

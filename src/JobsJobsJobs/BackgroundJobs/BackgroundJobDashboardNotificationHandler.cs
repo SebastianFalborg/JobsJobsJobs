@@ -14,20 +14,25 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
     private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
     private readonly IBackgroundJobDashboardStateStore _stateStore;
     private readonly IBackgroundJobRunRecorder _runRecorder;
+    private readonly IBackgroundJobStopCoordinator _stopCoordinator;
 
     public BackgroundJobDashboardNotificationHandler(
         IBackgroundJobDashboardStateStore stateStore,
         IBackgroundJobRunRecorder runRecorder,
-        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor)
+        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor,
+        IBackgroundJobStopCoordinator stopCoordinator)
     {
         _stateStore = stateStore;
         _runRecorder = runRecorder;
         _runExecutionContextAccessor = runExecutionContextAccessor;
+        _stopCoordinator = stopCoordinator;
     }
 
     public Task HandleAsync(RecurringBackgroundJobExecutingNotification notification, CancellationToken cancellationToken)
     {
-        _runExecutionContextAccessor.Set(_runExecutionContextAccessor.Create(notification.Job, BackgroundJobRunTrigger.Automatic));
+        BackgroundJobRunExecutionContext context = _runExecutionContextAccessor.Create(notification.Job, BackgroundJobRunTrigger.Automatic);
+        _runExecutionContextAccessor.Set(context);
+        _stopCoordinator.Register(notification.Job, context);
         _stateStore.BeginExecution(notification.Job);
         var runPersisted = false;
 
@@ -54,6 +59,7 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
             }
 
             _stateStore.AbortExecution(notification.Job);
+            _stopCoordinator.Complete(context.RunId);
             _runExecutionContextAccessor.Clear();
             throw;
         }
@@ -63,13 +69,23 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
     public Task HandleAsync(RecurringBackgroundJobExecutedNotification notification, CancellationToken cancellationToken)
     {
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+
         try
         {
-            _stateStore.MarkCompleted(notification.Job, BackgroundJobStatus.Succeeded, notification.Messages, notification.State);
-            _runRecorder.MarkCompleted(notification.Job, BackgroundJobStatus.Succeeded, notification.Messages, notification.State);
+            var status = context is not null && _stopCoordinator.IsStopRequested(context.RunId)
+                ? BackgroundJobStatus.Stopped
+                : BackgroundJobStatus.Succeeded;
+            _stateStore.MarkCompleted(notification.Job, status, notification.Messages, notification.State);
+            _runRecorder.MarkCompleted(notification.Job, status, notification.Messages, notification.State);
         }
         finally
         {
+            if (context is not null)
+            {
+                _stopCoordinator.Complete(context.RunId);
+            }
+
             _runExecutionContextAccessor.Clear();
         }
 
@@ -78,13 +94,28 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
     public Task HandleAsync(RecurringBackgroundJobFailedNotification notification, CancellationToken cancellationToken)
     {
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+
         try
         {
-            _stateStore.MarkFailed(notification.Job, notification.Messages, notification.State);
-            _runRecorder.MarkFailed(notification.Job, notification.Messages, notification.State);
+            if (context is not null && _stopCoordinator.IsStopRequested(context.RunId))
+            {
+                _stateStore.MarkCompleted(notification.Job, BackgroundJobStatus.Stopped, notification.Messages, notification.State);
+                _runRecorder.MarkCompleted(notification.Job, BackgroundJobStatus.Stopped, notification.Messages, notification.State);
+            }
+            else
+            {
+                _stateStore.MarkFailed(notification.Job, notification.Messages, notification.State);
+                _runRecorder.MarkFailed(notification.Job, notification.Messages, notification.State);
+            }
         }
         finally
         {
+            if (context is not null)
+            {
+                _stopCoordinator.Complete(context.RunId);
+            }
+
             _runExecutionContextAccessor.Clear();
         }
 
@@ -93,6 +124,8 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
     public Task HandleAsync(RecurringBackgroundJobIgnoredNotification notification, CancellationToken cancellationToken)
     {
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+
         try
         {
             _stateStore.MarkCompleted(notification.Job, BackgroundJobStatus.Ignored, notification.Messages, notification.State);
@@ -100,6 +133,11 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
         }
         finally
         {
+            if (context is not null)
+            {
+                _stopCoordinator.Complete(context.RunId);
+            }
+
             _runExecutionContextAccessor.Clear();
         }
 

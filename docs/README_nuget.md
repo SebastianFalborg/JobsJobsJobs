@@ -172,6 +172,62 @@ On application restart, the dashboard hydrates its summary columns from the late
 
 The only thing you need to do in your own job is inject and use `IBackgroundJobRunLogWriter<TJob>`.
 
+## Stop support and cooperative cancellation
+
+The dashboard can request that a running job stops, but recurring jobs are stopped cooperatively rather than forcefully.
+
+If you want a job to be stoppable from the dashboard, implement `IStoppableRecurringBackgroundJob` and inject `IBackgroundJobExecutionCancellation` into the job.
+
+```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using JobsJobsJobs.BackgroundJobs;
+using Umbraco.Cms.Core.Sync;
+using Umbraco.Cms.Infrastructure.BackgroundJobs;
+
+namespace MyUmbracoSite;
+
+internal sealed class MyStoppableBackgroundJob : IStoppableRecurringBackgroundJob
+{
+    private readonly IBackgroundJobExecutionCancellation _executionCancellation;
+
+    public MyStoppableBackgroundJob(IBackgroundJobExecutionCancellation executionCancellation)
+        => _executionCancellation = executionCancellation;
+
+    public TimeSpan Period => TimeSpan.FromMinutes(15);
+
+    public TimeSpan Delay => TimeSpan.FromMinutes(1);
+
+    public ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
+
+    public event EventHandler? PeriodChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public async Task RunJobAsync()
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            _executionCancellation.ThrowIfCancellationRequested();
+            await Task.Delay(TimeSpan.FromSeconds(1), _executionCancellation.CancellationToken);
+        }
+    }
+}
+```
+
+Best practices for stoppable jobs:
+
+- check `_executionCancellation.CancellationToken` in long-running async operations such as `Task.Delay`, HTTP calls, and I/O where possible
+- call `_executionCancellation.ThrowIfCancellationRequested()` between meaningful work units in loops or multi-step workflows
+- use `try/catch (OperationCanceledException)` if you want to write a final log entry or perform shutdown-specific cleanup before the job exits
+- use `finally` for cleanup that must happen whether the job succeeds, fails, or is stopped
+- do not treat stop as a hard kill; if the job never checks the cancellation signal, it will keep running until its own code finishes
+
+If a job does not implement `IStoppableRecurringBackgroundJob`, the dashboard will not show a stop action for that job.
+
 ## Dashboard behavior
 
 ### Filtering
@@ -199,6 +255,15 @@ The dashboard can trigger a registered job manually.
 - Manual runs are blocked when the same job is already running
 - Manual runs respect Umbraco runtime constraints such as MainDom and allowed server roles
 - Manual runs are persisted in the same run history as automatic runs
+
+### Stop requests
+
+The dashboard can request stop for running jobs that explicitly opt in to cooperative cancellation.
+
+- Stop is only shown for jobs implementing `IStoppableRecurringBackgroundJob`
+- Stop is cooperative and depends on the job observing `IBackgroundJobExecutionCancellation`
+- Jobs should check for stop between meaningful work units and pass the cancellation token into cancellable async operations
+- Use `OperationCanceledException` handling only when you need extra cleanup or logging inside the job itself
 
 ## Database tables
 

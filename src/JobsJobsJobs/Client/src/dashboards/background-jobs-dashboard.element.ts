@@ -30,7 +30,9 @@ interface BackgroundJobDashboardItem {
   delay: string;
   serverRoles: Array<string>;
   allowManualTrigger: boolean;
+  canStop: boolean;
   isRunning: boolean;
+  stopRequested: boolean;
   lastStartedAt?: string;
   lastCompletedAt?: string;
   lastDuration?: string;
@@ -70,6 +72,9 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   @state()
   private _runStates: Record<string, UUIButtonState> = {};
+
+  @state()
+  private _stopStates: Record<string, UUIButtonState> = {};
 
   @state()
   private _errorMessage = "";
@@ -183,6 +188,27 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
   }
 
+  private async _stopJob(alias: string) {
+    this._stopStates = { ...this._stopStates, [alias]: "waiting" };
+    this._errorMessage = "";
+
+    try {
+      const response = await this._fetch(`/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(alias)}`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(await this._readProblem(response));
+      }
+
+      await this._load();
+      this._stopStates = { ...this._stopStates, [alias]: undefined };
+    } catch (error) {
+      this._stopStates = { ...this._stopStates, [alias]: "failed" };
+      this._errorMessage = error instanceof Error ? error.message : `Could not stop ${alias}.`;
+    }
+  }
+
   private async _fetch(input: RequestInfo | URL, init?: RequestInit) {
     const headers = new Headers(init?.headers);
     headers.set("Content-Type", "application/json");
@@ -255,6 +281,10 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   }
 
   private _getStatusLabel(item: BackgroundJobDashboardItem) {
+    if (item.stopRequested) {
+      return "StopRequested";
+    }
+
     return item.isRunning ? "Running" : item.lastStatus;
   }
 
@@ -425,14 +455,30 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
           <td>${this._formatDuration(item.lastDuration)}</td>
           <td>${this._formatTimeSpan(item.period)}</td>
           <td>
-            <uui-button
-              look="primary"
-              label="Run now"
-              ?disabled=${item.allowManualTrigger === false || item.isRunning}
-              .state=${this._runStates[item.alias]}
-              @click=${() => this._runJob(item.alias)}>
-              Run now
-            </uui-button>
+            <div class="action-buttons">
+              ${item.isRunning && item.canStop
+                ? html`
+                    <uui-button
+                      look="primary"
+                      color="danger"
+                      label="Stop"
+                      ?disabled=${item.stopRequested}
+                      .state=${this._stopStates[item.alias]}
+                      @click=${() => this._stopJob(item.alias)}>
+                      ${item.stopRequested ? "Stopping…" : "Stop"}
+                    </uui-button>
+                  `
+                : html`
+                    <uui-button
+                      look="primary"
+                      label="Run now"
+                      ?disabled=${item.allowManualTrigger === false}
+                      .state=${this._runStates[item.alias]}
+                      @click=${() => this._runJob(item.alias)}>
+                      Run now
+                    </uui-button>
+                  `}
+            </div>
           </td>
         </tr>
         ${item.lastError || item.lastMessage || item.latestRun
@@ -585,6 +631,11 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         color: var(--uui-color-warning-emphasis);
       }
 
+      .status-stoprequested {
+        background: color-mix(in srgb, var(--uui-color-warning) 18%, white);
+        color: var(--uui-color-warning-emphasis);
+      }
+
       .status-succeeded {
         background: color-mix(in srgb, var(--uui-color-positive) 18%, white);
         color: var(--uui-color-positive-emphasis);
@@ -596,9 +647,16 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       }
 
       .status-idle,
+      .status-stopped,
       .status-ignored {
         background: var(--uui-color-surface-alt);
         color: var(--uui-color-text);
+      }
+
+      .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-2);
       }
 
       .details td {

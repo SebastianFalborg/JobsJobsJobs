@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Infrastructure.BackgroundJobs;
@@ -59,6 +61,163 @@ public enum BackgroundJobRunLogLevel
     Information,
     Warning,
     Error,
+}
+
+public interface IStoppableRecurringBackgroundJob : IRecurringBackgroundJob
+{
+}
+
+public interface IBackgroundJobExecutionCancellation
+{
+    public bool IsStopRequested { get; }
+
+    public CancellationToken CancellationToken { get; }
+
+    public void ThrowIfCancellationRequested();
+}
+
+internal enum BackgroundJobStopRequestState
+{
+    Success,
+    NotRunning,
+    NotSupported,
+    AlreadyRequested,
+}
+
+internal interface IBackgroundJobStopCoordinator
+{
+    public void Register(IRecurringBackgroundJob job, BackgroundJobRunExecutionContext context);
+
+    public void Complete(Guid runId);
+
+    public BackgroundJobStopRequestState RequestStop(string alias);
+
+    public bool IsStopRequested(Guid runId);
+
+    public CancellationToken GetCancellationToken(Guid runId);
+}
+
+internal sealed class BackgroundJobStopCoordinator : IBackgroundJobStopCoordinator
+{
+    private readonly ConcurrentDictionary<Guid, BackgroundJobActiveExecution> _executions = new();
+
+    public void Register(IRecurringBackgroundJob job, BackgroundJobRunExecutionContext context)
+        => _executions[context.RunId] = new BackgroundJobActiveExecution(
+            context.JobAlias,
+            job is IStoppableRecurringBackgroundJob,
+            new CancellationTokenSource());
+
+    public void Complete(Guid runId)
+    {
+        if (_executions.TryRemove(runId, out BackgroundJobActiveExecution? execution))
+        {
+            execution.Dispose();
+        }
+    }
+
+    public BackgroundJobStopRequestState RequestStop(string alias)
+    {
+        BackgroundJobActiveExecution[] executions = _executions
+            .Where(x => string.Equals(x.Value.JobAlias, alias, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Value)
+            .ToArray();
+
+        if (executions.Length == 0)
+        {
+            return BackgroundJobStopRequestState.NotRunning;
+        }
+
+        if (executions.Any(x => x.SupportsStop is false))
+        {
+            return BackgroundJobStopRequestState.NotSupported;
+        }
+
+        var stopRequested = false;
+
+        foreach (BackgroundJobActiveExecution execution in executions)
+        {
+            stopRequested |= execution.TryRequestStop();
+        }
+
+        return stopRequested
+            ? BackgroundJobStopRequestState.Success
+            : BackgroundJobStopRequestState.AlreadyRequested;
+    }
+
+    public bool IsStopRequested(Guid runId)
+        => _executions.TryGetValue(runId, out BackgroundJobActiveExecution? execution) && execution.IsStopRequested;
+
+    public CancellationToken GetCancellationToken(Guid runId)
+        => _executions.TryGetValue(runId, out BackgroundJobActiveExecution? execution)
+            ? execution.CancellationTokenSource.Token
+            : CancellationToken.None;
+}
+
+internal sealed class BackgroundJobExecutionCancellation : IBackgroundJobExecutionCancellation
+{
+    private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
+    private readonly IBackgroundJobStopCoordinator _stopCoordinator;
+
+    public BackgroundJobExecutionCancellation(
+        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor,
+        IBackgroundJobStopCoordinator stopCoordinator)
+    {
+        _runExecutionContextAccessor = runExecutionContextAccessor;
+        _stopCoordinator = stopCoordinator;
+    }
+
+    public bool IsStopRequested
+    {
+        get
+        {
+            BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+            return context is not null && _stopCoordinator.IsStopRequested(context.RunId);
+        }
+    }
+
+    public CancellationToken CancellationToken
+    {
+        get
+        {
+            BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+            return context is not null ? _stopCoordinator.GetCancellationToken(context.RunId) : CancellationToken.None;
+        }
+    }
+
+    public void ThrowIfCancellationRequested() => CancellationToken.ThrowIfCancellationRequested();
+}
+
+internal sealed class BackgroundJobActiveExecution : IDisposable
+{
+    private int _stopRequested;
+
+    public BackgroundJobActiveExecution(string jobAlias, bool supportsStop, CancellationTokenSource cancellationTokenSource)
+    {
+        JobAlias = jobAlias;
+        SupportsStop = supportsStop;
+        CancellationTokenSource = cancellationTokenSource;
+    }
+
+    public string JobAlias { get; }
+
+    public bool SupportsStop { get; }
+
+    public CancellationTokenSource CancellationTokenSource { get; }
+
+    public bool IsStopRequested => Volatile.Read(ref _stopRequested) == 1;
+
+    public bool TryRequestStop()
+    {
+        if (Interlocked.Exchange(ref _stopRequested, 1) == 1)
+        {
+            return false;
+        }
+
+        CancellationTokenSource.Cancel();
+        return true;
+    }
+
+    public void Dispose() => CancellationTokenSource.Dispose();
 }
 
 public class BackgroundJobRunLogEntry

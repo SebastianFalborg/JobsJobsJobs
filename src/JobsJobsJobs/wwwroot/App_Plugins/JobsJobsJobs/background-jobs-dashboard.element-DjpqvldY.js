@@ -1,15 +1,15 @@
-import { html as r, css as p, state as d, customElement as g } from "@umbraco-cms/backoffice/external/lit";
-import { UMB_AUTH_CONTEXT as m } from "@umbraco-cms/backoffice/auth";
-import { UmbLitElement as f } from "@umbraco-cms/backoffice/lit-element";
-import { UmbTextStyles as b } from "@umbraco-cms/backoffice/style";
-var _ = Object.defineProperty, v = Object.getOwnPropertyDescriptor, l = (e, t, s, i) => {
-  for (var a = i > 1 ? void 0 : i ? v(t, s) : t, n = e.length - 1, u; n >= 0; n--)
-    (u = e[n]) && (a = (i ? u(t, s, a) : u(a)) || a);
+import { html as r, css as h, state as l, customElement as g } from "@umbraco-cms/backoffice/external/lit";
+import { UMB_AUTH_CONTEXT as b } from "@umbraco-cms/backoffice/auth";
+import { UmbLitElement as m } from "@umbraco-cms/backoffice/lit-element";
+import { UmbTextStyles as f } from "@umbraco-cms/backoffice/style";
+var _ = Object.defineProperty, v = Object.getOwnPropertyDescriptor, u = (e, t, s, i) => {
+  for (var a = i > 1 ? void 0 : i ? v(t, s) : t, n = e.length - 1, d; n >= 0; n--)
+    (d = e[n]) && (a = (i ? d(t, s, a) : d(a)) || a);
   return i && a && _(t, s, a), a;
 };
-let o = class extends f {
+let o = class extends m {
   constructor() {
-    super(), this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(m, (e) => {
+    super(), this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(b, (e) => {
       const t = e?.getOpenApiConfiguration();
       this._authToken = t?.token, this._authCredentials = t?.credentials ?? "include", this._load();
     });
@@ -66,6 +66,19 @@ let o = class extends f {
       this._runStates = { ...this._runStates, [e]: "failed" }, this._errorMessage = t instanceof Error ? t.message : `Could not run ${e}.`;
     }
   }
+  async _stopJob(e) {
+    this._stopStates = { ...this._stopStates, [e]: "waiting" }, this._errorMessage = "";
+    try {
+      const t = await this._fetch(`/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(e)}`, {
+        method: "POST"
+      });
+      if (!t.ok)
+        throw new Error(await this._readProblem(t));
+      await this._load(), this._stopStates = { ...this._stopStates, [e]: void 0 };
+    } catch (t) {
+      this._stopStates = { ...this._stopStates, [e]: "failed" }, this._errorMessage = t instanceof Error ? t.message : `Could not stop ${e}.`;
+    }
+  }
   async _fetch(e, t) {
     const s = new Headers(t?.headers);
     s.set("Content-Type", "application/json");
@@ -97,15 +110,15 @@ let o = class extends f {
     const t = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(e);
     if (!t)
       return e;
-    const s = Number(t[1] ?? "0"), i = Number(t[2]), a = Number(t[3]), n = Number(t[4]), u = t[5] ?? "", h = u ? Math.round(+`0.${u}` * 1e3) : 0;
+    const s = Number(t[1] ?? "0"), i = Number(t[2]), a = Number(t[3]), n = Number(t[4]), d = t[5] ?? "", p = d ? Math.round(+`0.${d}` * 1e3) : 0;
     if (s > 0 || i > 0 || a > 0) {
       const c = [];
       return s > 0 && c.push(`${s}d`), i > 0 && c.push(`${i}h`), a > 0 && c.push(`${a}m`), n > 0 && c.push(`${n}s`), c.join(" ");
     }
-    return n > 0 ? h === 0 ? `${n}s` : `${n}.${h.toString().padStart(3, "0").replace(/0+$/, "")}s` : `${h}ms`;
+    return n > 0 ? p === 0 ? `${n}s` : `${n}.${p.toString().padStart(3, "0").replace(/0+$/, "")}s` : `${p}ms`;
   }
   _getStatusLabel(e) {
-    return e.isRunning ? "Running" : e.lastStatus;
+    return e.stopRequested ? "StopRequested" : e.isRunning ? "Running" : e.lastStatus;
   }
   _getStatusClassFromValue(e) {
     return `status-badge status-${e.toLowerCase()}`;
@@ -226,14 +239,28 @@ let o = class extends f {
           <td>${this._formatDuration(t.lastDuration)}</td>
           <td>${this._formatTimeSpan(t.period)}</td>
           <td>
-            <uui-button
-              look="primary"
-              label="Run now"
-              ?disabled=${t.allowManualTrigger === !1 || t.isRunning}
-              .state=${this._runStates[t.alias]}
-              @click=${() => this._runJob(t.alias)}>
-              Run now
-            </uui-button>
+            <div class="action-buttons">
+              ${t.isRunning && t.canStop ? r`
+                    <uui-button
+                      look="primary"
+                      color="danger"
+                      label="Stop"
+                      ?disabled=${t.stopRequested}
+                      .state=${this._stopStates[t.alias]}
+                      @click=${() => this._stopJob(t.alias)}>
+                      ${t.stopRequested ? "Stopping…" : "Stop"}
+                    </uui-button>
+                  ` : r`
+                    <uui-button
+                      look="primary"
+                      label="Run now"
+                      ?disabled=${t.allowManualTrigger === !1}
+                      .state=${this._runStates[t.alias]}
+                      @click=${() => this._runJob(t.alias)}>
+                      Run now
+                    </uui-button>
+                  `}
+            </div>
           </td>
         </tr>
         ${t.lastError || t.lastMessage || t.latestRun ? r`<tr class="details"><td colspan="8">${this._renderCurrentStateDetails(t)}${this._renderLatestRun(t)}</td></tr>` : ""}`
@@ -283,8 +310,8 @@ let o = class extends f {
 };
 o._autoRefreshIntervalMs = 5e3;
 o.styles = [
-  b,
-  p`
+  f,
+  h`
       :host {
         display: block;
         padding: var(--uui-size-layout-1);
@@ -384,6 +411,11 @@ o.styles = [
         color: var(--uui-color-warning-emphasis);
       }
 
+      .status-stoprequested {
+        background: color-mix(in srgb, var(--uui-color-warning) 18%, white);
+        color: var(--uui-color-warning-emphasis);
+      }
+
       .status-succeeded {
         background: color-mix(in srgb, var(--uui-color-positive) 18%, white);
         color: var(--uui-color-positive-emphasis);
@@ -395,9 +427,16 @@ o.styles = [
       }
 
       .status-idle,
+      .status-stopped,
       .status-ignored {
         background: var(--uui-color-surface-alt);
         color: var(--uui-color-text);
+      }
+
+      .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-2);
       }
 
       .details td {
@@ -513,25 +552,28 @@ o.styles = [
       }
     `
 ];
-l([
-  d()
+u([
+  l()
 ], o.prototype, "_items", 2);
-l([
-  d()
+u([
+  l()
 ], o.prototype, "_isLoading", 2);
-l([
-  d()
+u([
+  l()
 ], o.prototype, "_reloadState", 2);
-l([
-  d()
+u([
+  l()
 ], o.prototype, "_runStates", 2);
-l([
-  d()
+u([
+  l()
+], o.prototype, "_stopStates", 2);
+u([
+  l()
 ], o.prototype, "_errorMessage", 2);
-l([
-  d()
+u([
+  l()
 ], o.prototype, "_statusFilter", 2);
-o = l([
+o = u([
   g("jobs-jobs-jobs-background-jobs-dashboard")
 ], o);
 const x = o;
@@ -539,4 +581,4 @@ export {
   o as JobsJobsJobsBackgroundJobsDashboardElement,
   x as default
 };
-//# sourceMappingURL=background-jobs-dashboard.element-X0EZH2k0.js.map
+//# sourceMappingURL=background-jobs-dashboard.element-DjpqvldY.js.map

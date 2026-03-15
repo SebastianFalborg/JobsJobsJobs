@@ -8,16 +8,19 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.TestSite;
 
-internal sealed class DashboardSmokeTestJob : IRecurringBackgroundJob
+internal sealed class DashboardSmokeTestJob : IStoppableRecurringBackgroundJob
 {
+    private readonly IBackgroundJobExecutionCancellation _executionCancellation;
     private readonly ILogger<DashboardSmokeTestJob> _logger;
     private readonly IBackgroundJobRunLogWriter<DashboardSmokeTestJob> _runLogWriter;
     private int _runCount;
 
     public DashboardSmokeTestJob(
+        IBackgroundJobExecutionCancellation executionCancellation,
         ILogger<DashboardSmokeTestJob> logger,
         IBackgroundJobRunLogWriter<DashboardSmokeTestJob> runLogWriter)
     {
+        _executionCancellation = executionCancellation;
         _logger = logger;
         _runLogWriter = runLogWriter;
     }
@@ -42,7 +45,12 @@ internal sealed class DashboardSmokeTestJob : IRecurringBackgroundJob
         _runLogWriter.Information($"Run {runNumber} started.");
         _runLogWriter.Information("Waiting 10 seconds to simulate work.");
 
-        await Task.Delay(TimeSpan.FromSeconds(10));
+        for (var second = 1; second <= 10; second++)
+        {
+            _executionCancellation.ThrowIfCancellationRequested();
+            await Task.Delay(TimeSpan.FromSeconds(1), _executionCancellation.CancellationToken);
+            _runLogWriter.Information($"Completed simulated second {second} of 10.");
+        }
 
         if (runNumber % 2 == 0)
         {
