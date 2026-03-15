@@ -15,6 +15,14 @@ public class BackgroundJobDashboardItemResponseModel
 
     public TimeSpan Delay { get; set; }
 
+    public bool UsesCronSchedule { get; set; }
+
+    public string? ScheduleDisplay { get; set; }
+
+    public string? CronExpression { get; set; }
+
+    public string? TimeZoneId { get; set; }
+
     public IEnumerable<string> ServerRoles { get; set; } = Array.Empty<string>();
 
     public bool AllowManualTrigger { get; set; }

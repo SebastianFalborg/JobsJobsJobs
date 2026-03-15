@@ -11,14 +11,14 @@
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
     <Version>1.0.1-local.3</Version>
     <Title>Jobs Jobs Jobs</Title>
-    <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, and stored run logs.</Description>
-    <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs</PackageTags>
+    <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, cooperative stop support, and opt-in CRON scheduling.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs;cron;recurring-jobs</PackageTags>
     <Authors>Sebastian Falborg Braun</Authors>
     <Copyright>$([System.DateTime]::UtcNow.ToString(`yyyy`)) © Sebastian Falborg Braun</Copyright>
     <PackageProjectUrl>https://github.com/SebastianFalborg/JobsJobsJobs</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SebastianFalborg/JobsJobsJobs</RepositoryUrl>
     <PackageReadmeFile>README_nuget.md</PackageReadmeFile>
-    <PackageReleaseNotes>Improves dashboard UX, persisted run history hydration, concurrency handling, and automatic job completion tracking.</PackageReleaseNotes>
+    <PackageReleaseNotes>Improves dashboard UX, persisted run history hydration, stop support, concurrency handling, and adds opt-in CRON scheduling on top of Umbraco recurring jobs.</PackageReleaseNotes>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon></PackageIcon>
@@ -26,6 +26,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Cronos" Version="0.11.1" />
     <PackageReference Include="Umbraco.Cms.Web.Website" Version="17.0.0" />
     <PackageReference Include="Umbraco.Cms.Web.Common" Version="17.0.0" />
     <PackageReference Include="Umbraco.Cms.Api.Common" Version="17.0.0" />

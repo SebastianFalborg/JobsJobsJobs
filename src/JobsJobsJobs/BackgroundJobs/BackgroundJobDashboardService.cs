@@ -316,18 +316,26 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
     }
 
     private static BackgroundJobDashboardItem CreateDefinition(IRecurringBackgroundJob job)
-        => new()
+    {
+        IBackgroundJobDashboardMetadata? metadata = job as IBackgroundJobDashboardMetadata;
+
+        return new BackgroundJobDashboardItem
         {
             Alias = BackgroundJobDashboardNaming.GetAlias(job),
             Name = BackgroundJobDashboardNaming.GetDisplayName(job),
-            Type = job.GetType().FullName ?? job.GetType().Name,
+            Type = metadata?.JobType.FullName ?? job.GetType().FullName ?? job.GetType().Name,
             Delay = job.Delay,
             Period = job.Period,
+            UsesCronSchedule = metadata?.UsesCronSchedule ?? false,
+            ScheduleDisplay = metadata?.ScheduleDisplay ?? job.Period.ToString(),
+            CronExpression = metadata?.CronExpression,
+            TimeZoneId = metadata?.TimeZoneId,
             ServerRoles = job.ServerRoles,
             AllowManualTrigger = true,
             CanStop = BackgroundJobDashboardNaming.SupportsStop(job),
             LastStatus = BackgroundJobStatus.Idle,
         };
+    }
 
     private static BackgroundJobDashboardItem Clone(BackgroundJobDashboardItem item)
         => new()
@@ -337,6 +345,10 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
             Type = item.Type,
             Period = item.Period,
             Delay = item.Delay,
+            UsesCronSchedule = item.UsesCronSchedule,
+            ScheduleDisplay = item.ScheduleDisplay,
+            CronExpression = item.CronExpression,
+            TimeZoneId = item.TimeZoneId,
             ServerRoles = item.ServerRoles,
             AllowManualTrigger = item.AllowManualTrigger,
             CanStop = item.CanStop,
@@ -393,6 +405,10 @@ internal sealed class BackgroundJobDashboardService : IBackgroundJobDashboardSer
             Type = item.Type,
             Period = item.Period,
             Delay = item.Delay,
+            UsesCronSchedule = item.UsesCronSchedule,
+            ScheduleDisplay = item.ScheduleDisplay,
+            CronExpression = item.CronExpression,
+            TimeZoneId = item.TimeZoneId,
             ServerRoles = item.ServerRoles,
             AllowManualTrigger = item.AllowManualTrigger,
             CanStop = item.CanStop,

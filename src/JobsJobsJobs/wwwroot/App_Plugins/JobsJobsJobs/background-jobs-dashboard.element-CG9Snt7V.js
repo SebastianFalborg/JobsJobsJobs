@@ -1,13 +1,13 @@
 import { html as r, css as h, state as l, customElement as g } from "@umbraco-cms/backoffice/external/lit";
 import { UMB_AUTH_CONTEXT as b } from "@umbraco-cms/backoffice/auth";
-import { UmbLitElement as m } from "@umbraco-cms/backoffice/lit-element";
+import { UmbLitElement as _ } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles as f } from "@umbraco-cms/backoffice/style";
-var _ = Object.defineProperty, v = Object.getOwnPropertyDescriptor, u = (e, t, s, i) => {
+var m = Object.defineProperty, v = Object.getOwnPropertyDescriptor, u = (e, t, s, i) => {
   for (var a = i > 1 ? void 0 : i ? v(t, s) : t, n = e.length - 1, d; n >= 0; n--)
     (d = e[n]) && (a = (i ? d(t, s, a) : d(a)) || a);
-  return i && a && _(t, s, a), a;
+  return i && a && m(t, s, a), a;
 };
-let o = class extends m {
+let o = class extends _ {
   constructor() {
     super(), this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(b, (e) => {
       const t = e?.getOpenApiConfiguration();
@@ -104,6 +104,12 @@ let o = class extends m {
   }
   _formatTimeSpan(e) {
     return e.startsWith("00:") || e.startsWith("0."), e;
+  }
+  _renderSchedule(e) {
+    return e.usesCronSchedule ? r`
+        <div>${e.scheduleDisplay ?? e.cronExpression ?? "-"}</div>
+        <div class="muted">${e.timeZoneId ?? "UTC"}</div>
+      ` : r`${this._formatTimeSpan(e.period)}`;
   }
   _formatDuration(e) {
     if (!e) return "-";
@@ -237,7 +243,7 @@ let o = class extends m {
           <td>${this._formatDate(t.lastFailedAt)}</td>
           <td>${this._formatDate(t.lastStartedAt)}</td>
           <td>${this._formatDuration(t.lastDuration)}</td>
-          <td>${this._formatTimeSpan(t.period)}</td>
+          <td>${this._renderSchedule(t)}</td>
           <td>
             <div class="action-buttons">
               ${t.isRunning && t.canStop ? r`
@@ -272,7 +278,7 @@ let o = class extends m {
         <uui-button slot="header-actions" look="secondary" label="Refresh" @click=${this._reload} .state=${this._reloadState}>
           Refresh
         </uui-button>
-        <p>Recurring background jobs registered in Umbraco with status and manual trigger.</p>
+        <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger.</p>
         <p class="muted refresh-info">Auto-refreshes every ${o._autoRefreshIntervalMs / 1e3} seconds when custom jobs are present.</p>
         ${this._errorMessage ? r`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
@@ -295,7 +301,7 @@ let o = class extends m {
                 <th>Last failure</th>
                 <th>Last start</th>
                 <th>Last duration</th>
-                <th>Period</th>
+                <th>Schedule</th>
                 <th></th>
               </tr>
             </thead>
@@ -581,4 +587,4 @@ export {
   o as JobsJobsJobsBackgroundJobsDashboardElement,
   x as default
 };
-//# sourceMappingURL=background-jobs-dashboard.element-DjpqvldY.js.map
+//# sourceMappingURL=background-jobs-dashboard.element-CG9Snt7V.js.map

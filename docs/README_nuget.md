@@ -77,6 +77,85 @@ internal sealed class MyBackgroundJobsComposer : IComposer
 
 Restart the application and open `Settings -> Background Jobs` in the Umbraco backoffice.
 
+## CRON schedules
+
+If `Period` and `Delay` are too limited for a job, you can opt in to CRON scheduling.
+
+CRON jobs are registered through Jobs Jobs Jobs, but they still run on top of Umbraco's recurring job infrastructure.
+
+- use `ICronBackgroundJob` or `CronBackgroundJobBase` when you want CRON semantics
+- use `IStoppableCronBackgroundJob` or `StoppableCronBackgroundJobBase` if the job should also support cooperative stop requests
+- register CRON jobs with `AddCronBackgroundJob<TJob>()` or `AddStoppableCronBackgroundJob<TJob>()`
+
+```csharp
+using System;
+using System.Threading.Tasks;
+using JobsJobsJobs.BackgroundJobs;
+using Umbraco.Cms.Core.Sync;
+
+namespace MyUmbracoSite;
+
+internal sealed class MyCronBackgroundJob : CronBackgroundJobBase
+{
+    public override string CronExpression => "0 2 * * *";
+
+    public override TimeZoneInfo TimeZone => TimeZoneInfo.Utc;
+
+    public override ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
+
+    public override Task RunJobAsync()
+    {
+        return Task.CompletedTask;
+    }
+}
+```
+
+Register it in a composer:
+
+```csharp
+using JobsJobsJobs.BackgroundJobs;
+using Umbraco.Cms.Core.Composing;
+using Umbraco.Cms.Core.DependencyInjection;
+
+namespace MyUmbracoSite;
+
+internal sealed class MyCronBackgroundJobsComposer : IComposer
+{
+    public void Compose(IUmbracoBuilder builder)
+    {
+        builder.Services.AddCronBackgroundJob<MyCronBackgroundJob>();
+    }
+}
+```
+
+How CRON relates to `Period` and `Delay`:
+
+- CRON support is opt in and does not change existing `IRecurringBackgroundJob` implementations
+- the CRON expression is the schedule for the job body
+- the optional time zone controls how that CRON expression is interpreted
+- internally, Jobs Jobs Jobs polls with a recurring Umbraco job and only executes the job body when the next CRON occurrence is due
+- `PollingPeriod` controls how often the CRON expression is checked
+- `Delay` controls the initial delay before the polling loop starts
+- the dashboard shows the CRON expression as the schedule instead of the internal polling period
+- manual `Run now` still runs the job immediately and does not wait for the next CRON occurrence
+
+The default polling period for `CronBackgroundJobBase` is one minute. You can override `PollingPeriod` and `Delay` if you need a different polling cadence.
+
+If you use a CRON job, do not also register the same logical job as a normal `IRecurringBackgroundJob`. Pick one scheduling model per job.
+
+For example, a CRON job with `CronExpression = "* 22-23 * * SUN"` and `PollingPeriod = TimeSpan.FromMinutes(1)` means:
+
+- Umbraco checks every minute
+- the job body is only allowed to run on Sundays between `22:00` and `23:59`
+
+If you need multiple CRON windows for one job, separate expressions with `;`.
+
+For example, Sunday `22:30-23:59` UTC can be expressed as:
+
+```csharp
+public override string CronExpression => "30-59 22 * * SUN; * 23 * * SUN";
+```
+
 ## Configuration
 
 ### Show Umbraco built-in jobs

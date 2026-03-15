@@ -17,6 +17,8 @@ internal sealed class BackgroundJobRunExecutionContext
     public BackgroundJobRunTrigger Trigger { get; init; }
 
     public DateTime StartedAt { get; init; }
+
+    public bool ShouldExecute { get; set; } = true;
 }
 
 internal interface IBackgroundJobRunExecutionContextAccessor
@@ -256,7 +258,7 @@ public class BackgroundJobRunHistoryItem
 
 public interface IBackgroundJobRunHistoryService
 {
-    public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, int maxLogsPerRun = 20);
+    public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, BackgroundJobRunTrigger? trigger = null, int maxLogsPerRun = 20);
 }
 
 public interface IBackgroundJobRunRecorder

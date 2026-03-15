@@ -1,0 +1,137 @@
+using Xunit;
+using JobsJobsJobs.BackgroundJobs;
+
+namespace JobsJobsJobs.Tests;
+
+public class BackgroundJobCronSchedulerTests
+{
+    [Fact]
+    public void ShouldExecute_WhenFirstOccurrenceInWindowIsDue_ReturnsTrue()
+    {
+        DateTime startedAtUtc = new(2026, 3, 15, 22, 0, 5, DateTimeKind.Utc);
+        var scheduler = CreateScheduler(startedAtUtc.AddMinutes(-1));
+
+        var result = scheduler.ShouldExecute(
+            "Sunday2200UtcCronTestJob",
+            "* 22-23 * * SUN",
+            TimeZoneInfo.Utc,
+            startedAtUtc);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldExecute_WhenBeforeSecondWindow_ReturnsFalse()
+    {
+        DateTime startedAtUtc = new(2026, 3, 15, 22, 11, 5, DateTimeKind.Utc);
+        var scheduler = CreateScheduler(startedAtUtc.AddMinutes(-1));
+
+        var result = scheduler.ShouldExecute(
+            "Sunday2230UtcCronTestJob",
+            "30-59 22 * * SUN; * 23 * * SUN",
+            TimeZoneInfo.Utc,
+            startedAtUtc);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldExecute_WhenSecondWindowStarts_ReturnsTrue()
+    {
+        DateTime startedAtUtc = new(2026, 3, 15, 22, 30, 5, DateTimeKind.Utc);
+        var scheduler = CreateScheduler(startedAtUtc.AddMinutes(-1));
+
+        var result = scheduler.ShouldExecute(
+            "Sunday2230UtcCronTestJob",
+            "30-59 22 * * SUN; * 23 * * SUN",
+            TimeZoneInfo.Utc,
+            startedAtUtc);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldExecute_WhenLatestAutomaticRunAlreadyCoveredCurrentMinute_ReturnsFalse()
+    {
+        DateTime startedAtUtc = new(2026, 3, 15, 22, 30, 55, DateTimeKind.Utc);
+        var latestRun = new BackgroundJobRunHistoryItem
+        {
+            JobAlias = "Sunday2200UtcCronTestJob",
+            StartedAt = new DateTime(startedAtUtc.Year, startedAtUtc.Month, startedAtUtc.Day, 22, 30, 5, DateTimeKind.Utc),
+        };
+        var scheduler = CreateScheduler(startedAtUtc.AddHours(-1), latestRun);
+
+        var result = scheduler.ShouldExecute(
+            "Sunday2200UtcCronTestJob",
+            "* 22-23 * * SUN",
+            TimeZoneInfo.Utc,
+            startedAtUtc);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldExecute_WhenTimesAreUnspecified_NormalizesToUtc()
+    {
+        DateTime sundayUtc = new(2026, 3, 15, 22, 30, 5, DateTimeKind.Utc);
+        var latestRun = new BackgroundJobRunHistoryItem
+        {
+            JobAlias = "Sunday2200UtcCronTestJob",
+            StartedAt = new DateTime(sundayUtc.Year, sundayUtc.Month, sundayUtc.Day, 22, 29, 5, DateTimeKind.Unspecified),
+        };
+        var scheduler = CreateScheduler(sundayUtc.AddHours(-1), latestRun);
+        DateTime startedAtUtc = new DateTime(sundayUtc.Year, sundayUtc.Month, sundayUtc.Day, 22, 30, 5, DateTimeKind.Unspecified);
+
+        var result = scheduler.ShouldExecute(
+            "Sunday2200UtcCronTestJob",
+            "* 22-23 * * SUN",
+            TimeZoneInfo.Utc,
+            startedAtUtc);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldExecute_WhenTriggerIsManual_AdapterAlwaysAllowsExecution()
+    {
+        var adapter = new CronRecurringBackgroundJobAdapter<TestCronJob>(
+            new TestCronJob(),
+            CreateScheduler(new DateTime(2026, 3, 15, 22, 0, 0, DateTimeKind.Utc)),
+            new BackgroundJobCronSuppressionCoordinator(),
+            new BackgroundJobRunExecutionContextAccessor());
+        DateTime startedAtUtc = new(2026, 3, 15, 22, 11, 5, DateTimeKind.Utc);
+        var context = new BackgroundJobRunExecutionContext
+        {
+            Trigger = BackgroundJobRunTrigger.Manual,
+            StartedAt = startedAtUtc,
+            JobAlias = "TestCronJob",
+        };
+
+        var result = adapter.ShouldExecute(context);
+
+        Assert.True(result);
+    }
+
+    private static BackgroundJobCronScheduler CreateScheduler(DateTime startedAtUtc, params BackgroundJobRunHistoryItem[] runs)
+        => new(new StubRunHistoryService(runs), () => startedAtUtc);
+
+    private sealed class StubRunHistoryService : IBackgroundJobRunHistoryService
+    {
+        private readonly IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> _runs;
+
+        public StubRunHistoryService(params BackgroundJobRunHistoryItem[] runs)
+            => _runs = runs.ToDictionary(x => x.JobAlias, StringComparer.OrdinalIgnoreCase);
+
+        public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, BackgroundJobRunTrigger? trigger = null, int maxLogsPerRun = 20)
+            => aliases
+                .Where(alias => _runs.ContainsKey(alias))
+                .ToDictionary(alias => alias, alias => _runs[alias], StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class TestCronJob : CronBackgroundJobBase
+    {
+        public override string CronExpression => "30-59 22 * * SUN; * 23 * * SUN";
+
+        public override Task RunJobAsync() => Task.CompletedTask;
+    }
+}

@@ -15,22 +15,35 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
     private readonly IBackgroundJobDashboardStateStore _stateStore;
     private readonly IBackgroundJobRunRecorder _runRecorder;
     private readonly IBackgroundJobStopCoordinator _stopCoordinator;
+    private readonly IBackgroundJobCronSuppressionCoordinator _cronSuppressionCoordinator;
 
     public BackgroundJobDashboardNotificationHandler(
         IBackgroundJobDashboardStateStore stateStore,
         IBackgroundJobRunRecorder runRecorder,
         IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor,
-        IBackgroundJobStopCoordinator stopCoordinator)
+        IBackgroundJobStopCoordinator stopCoordinator,
+        IBackgroundJobCronSuppressionCoordinator cronSuppressionCoordinator)
     {
         _stateStore = stateStore;
         _runRecorder = runRecorder;
         _runExecutionContextAccessor = runExecutionContextAccessor;
         _stopCoordinator = stopCoordinator;
+        _cronSuppressionCoordinator = cronSuppressionCoordinator;
     }
 
     public Task HandleAsync(RecurringBackgroundJobExecutingNotification notification, CancellationToken cancellationToken)
     {
         BackgroundJobRunExecutionContext context = _runExecutionContextAccessor.Create(notification.Job, BackgroundJobRunTrigger.Automatic);
+
+        if (notification.Job is ICronRecurringBackgroundJobAdapter cronJob
+            && cronJob.ShouldExecute(context) is false)
+        {
+            _cronSuppressionCoordinator.Suppress(context.JobAlias);
+            context.ShouldExecute = false;
+            _runExecutionContextAccessor.Set(context);
+            return Task.CompletedTask;
+        }
+
         _runExecutionContextAccessor.Set(context);
         _stopCoordinator.Register(notification.Job, context);
         _stateStore.BeginExecution(notification.Job);
@@ -70,6 +83,17 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
     public Task HandleAsync(RecurringBackgroundJobExecutedNotification notification, CancellationToken cancellationToken)
     {
         BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        if (_cronSuppressionCoordinator.TryConsumeNotificationSkip(BackgroundJobDashboardNaming.GetAlias(notification.Job)))
+        {
+            _runExecutionContextAccessor.Clear();
+            return Task.CompletedTask;
+        }
+
+        if (context is not null && context.ShouldExecute is false)
+        {
+            _runExecutionContextAccessor.Clear();
+            return Task.CompletedTask;
+        }
 
         try
         {
@@ -95,6 +119,17 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
     public Task HandleAsync(RecurringBackgroundJobFailedNotification notification, CancellationToken cancellationToken)
     {
         BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        if (_cronSuppressionCoordinator.TryConsumeNotificationSkip(BackgroundJobDashboardNaming.GetAlias(notification.Job)))
+        {
+            _runExecutionContextAccessor.Clear();
+            return Task.CompletedTask;
+        }
+
+        if (context is not null && context.ShouldExecute is false)
+        {
+            _runExecutionContextAccessor.Clear();
+            return Task.CompletedTask;
+        }
 
         try
         {
@@ -125,6 +160,17 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
     public Task HandleAsync(RecurringBackgroundJobIgnoredNotification notification, CancellationToken cancellationToken)
     {
         BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        if (_cronSuppressionCoordinator.TryConsumeNotificationSkip(BackgroundJobDashboardNaming.GetAlias(notification.Job)))
+        {
+            _runExecutionContextAccessor.Clear();
+            return Task.CompletedTask;
+        }
+
+        if (context is not null && context.ShouldExecute is false)
+        {
+            _runExecutionContextAccessor.Clear();
+            return Task.CompletedTask;
+        }
 
         try
         {

@@ -20,6 +20,8 @@ namespace JobsJobsJobs.Composers
         {
             builder.Services.AddSingleton<IBackgroundJobRunExecutionContextAccessor, BackgroundJobRunExecutionContextAccessor>();
             builder.Services.AddSingleton<IBackgroundJobStopCoordinator, BackgroundJobStopCoordinator>();
+            builder.Services.AddSingleton<IBackgroundJobCronScheduler, BackgroundJobCronScheduler>();
+            builder.Services.AddSingleton<IBackgroundJobCronSuppressionCoordinator, BackgroundJobCronSuppressionCoordinator>();
             builder.Services.AddSingleton<IBackgroundJobDashboardStateStore, BackgroundJobDashboardStateStore>();
             builder.Services.AddSingleton<IBackgroundJobDashboardService, BackgroundJobDashboardService>();
             builder.Services.AddSingleton<IBackgroundJobManualTriggerDispatcher, BackgroundJobManualTriggerDispatcher>();

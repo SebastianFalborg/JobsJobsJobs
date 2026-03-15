@@ -28,6 +28,10 @@ interface BackgroundJobDashboardItem {
   type: string;
   period: string;
   delay: string;
+  usesCronSchedule: boolean;
+  scheduleDisplay?: string;
+  cronExpression?: string;
+  timeZoneId?: string;
   serverRoles: Array<string>;
   allowManualTrigger: boolean;
   canStop: boolean;
@@ -245,6 +249,20 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     return value.startsWith("00:") || value.startsWith("0.") ? value : value;
   }
 
+  private _renderSchedule(item: BackgroundJobDashboardItem) {
+    if (item.usesCronSchedule) {
+      return html`
+        <div>${item.scheduleDisplay ?? item.cronExpression ?? "-"}</div>
+        <div class="muted">CRON · ${item.timeZoneId ?? "UTC"}</div>
+      `;
+    }
+
+    return html`
+      <div>${this._formatTimeSpan(item.period)}</div>
+      <div class="muted">Interval</div>
+    `;
+  }
+
   private _formatDuration(value?: string) {
     if (!value) return "-";
 
@@ -453,7 +471,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
           <td>${this._formatDate(item.lastFailedAt)}</td>
           <td>${this._formatDate(item.lastStartedAt)}</td>
           <td>${this._formatDuration(item.lastDuration)}</td>
-          <td>${this._formatTimeSpan(item.period)}</td>
+          <td>${this._renderSchedule(item)}</td>
           <td>
             <div class="action-buttons">
               ${item.isRunning && item.canStop
@@ -493,7 +511,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         <uui-button slot="header-actions" look="secondary" label="Refresh" @click=${this._reload} .state=${this._reloadState}>
           Refresh
         </uui-button>
-        <p>Recurring background jobs registered in Umbraco with status and manual trigger.</p>
+        <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
         <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds when custom jobs are present.</p>
         ${this._errorMessage ? html`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
@@ -516,7 +534,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
                 <th>Last failure</th>
                 <th>Last start</th>
                 <th>Last duration</th>
-                <th>Period</th>
+                <th>Schedule</th>
                 <th></th>
               </tr>
             </thead>

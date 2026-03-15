@@ -113,7 +113,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         InsertLog(scope.Database, runId.Value, level, message);
     }
 
-    public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, int maxLogsPerRun = 20)
+    public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, BackgroundJobRunTrigger? trigger = null, int maxLogsPerRun = 20)
     {
         var result = new Dictionary<string, BackgroundJobRunHistoryItem>(StringComparer.OrdinalIgnoreCase);
 
@@ -121,9 +121,14 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
         foreach (string alias in aliases.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            List<BackgroundJobRunDto> runs = scope.Database.Fetch<BackgroundJobRunDto>(
-                "SELECT * FROM [JobsJobsJobsBackgroundJobRun] WHERE [JobAlias] = @0 ORDER BY [StartedAt] DESC",
-                alias);
+            List<BackgroundJobRunDto> runs = trigger.HasValue
+                ? scope.Database.Fetch<BackgroundJobRunDto>(
+                    "SELECT * FROM [JobsJobsJobsBackgroundJobRun] WHERE [JobAlias] = @0 AND [Trigger] = @1 ORDER BY [StartedAt] DESC",
+                    alias,
+                    trigger.Value.ToString())
+                : scope.Database.Fetch<BackgroundJobRunDto>(
+                    "SELECT * FROM [JobsJobsJobsBackgroundJobRun] WHERE [JobAlias] = @0 ORDER BY [StartedAt] DESC",
+                    alias);
 
             BackgroundJobRunDto? run = runs.FirstOrDefault();
             if (run is null)

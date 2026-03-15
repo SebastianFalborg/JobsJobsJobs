@@ -1,8 +1,6 @@
 # Jobs Jobs Jobs
 
-Jobs Jobs Jobs adds a backoffice dashboard for recurring Umbraco background jobs, including runtime status and manual triggering.
-
-It also supports cooperative stop requests for jobs that opt in with `IStoppableRecurringBackgroundJob` and observe the provided cancellation signal.
+Jobs Jobs Jobs adds a backoffice dashboard for recurring Umbraco background jobs, including runtime status, manual triggering, persisted run history, cooperative stop support, and opt-in CRON scheduling.
 
 ## Why use this over Hangfire?
 
@@ -21,7 +19,13 @@ If you want the install and usage guide for the package itself, see:
 docs/README_nuget.md
 ```
 
-The package guide includes the stop-support setup, how to inject `IBackgroundJobExecutionCancellation`, and best practices for cooperative cancellation.
+The package guide includes:
+
+- stop-support setup
+- CRON job registration
+- how `CRON` relates to `Period` and `Delay`
+- multi-window CRON schedules
+- best practices for cooperative cancellation
 
 ## Build
 

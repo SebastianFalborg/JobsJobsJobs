@@ -55,6 +55,14 @@ public class BackgroundJobDashboardItem
 
     public TimeSpan Delay { get; set; }
 
+    public bool UsesCronSchedule { get; set; }
+
+    public string? ScheduleDisplay { get; set; }
+
+    public string? CronExpression { get; set; }
+
+    public string? TimeZoneId { get; set; }
+
     public ServerRole[] ServerRoles { get; set; } = Array.Empty<ServerRole>();
 
     public bool AllowManualTrigger { get; set; } = true;
@@ -102,12 +110,12 @@ internal static class BackgroundJobDashboardNaming
 {
     internal static string GetAlias(IRecurringBackgroundJob job) => GetAlias(job.GetType());
 
-    internal static string GetAlias(Type jobType) => jobType.FullName ?? jobType.Name;
+    internal static string GetAlias(Type jobType) => GetJobType(jobType).FullName ?? GetJobType(jobType).Name;
 
     internal static bool IsUmbracoJob(IRecurringBackgroundJob job) => IsUmbracoJob(job.GetType());
 
     internal static bool IsUmbracoJob(Type jobType)
-        => jobType.Namespace?.StartsWith("Umbraco.", StringComparison.Ordinal) is true;
+        => GetJobType(jobType).Namespace?.StartsWith("Umbraco.", StringComparison.Ordinal) is true;
 
     internal static bool ShouldInclude(IRecurringBackgroundJob job, BackgroundJobDashboardOptions options)
         => options.IncludeUmbracoJobs || IsUmbracoJob(job) is false;
@@ -121,7 +129,24 @@ internal static class BackgroundJobDashboardNaming
 
     internal static string GetDisplayName(Type jobType)
     {
-        var name = jobType.Name;
+        var name = GetJobType(jobType).Name;
         return name.EndsWith("Job", StringComparison.Ordinal) ? name[..^3] : name;
+    }
+
+    private static Type GetJobType(Type jobType)
+    {
+        if (jobType.IsGenericType is false)
+        {
+            return jobType;
+        }
+
+        Type genericTypeDefinition = jobType.GetGenericTypeDefinition();
+        if (genericTypeDefinition == typeof(CronRecurringBackgroundJobAdapter<>)
+            || genericTypeDefinition == typeof(StoppableCronRecurringBackgroundJobAdapter<>))
+        {
+            return jobType.GetGenericArguments()[0];
+        }
+
+        return jobType;
     }
 }
