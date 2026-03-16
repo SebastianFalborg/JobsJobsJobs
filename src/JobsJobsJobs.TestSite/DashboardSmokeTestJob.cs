@@ -1,26 +1,19 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using JobsJobsJobs.BackgroundJobs;
-using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core.Sync;
 using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.TestSite;
 
-internal sealed class DashboardSmokeTestJob : IStoppableRecurringBackgroundJob
+internal sealed class DashboardSmokeTestJob : IRecurringBackgroundJob
 {
-    private readonly IBackgroundJobExecutionCancellation _executionCancellation;
     private readonly ILogger<DashboardSmokeTestJob> _logger;
     private readonly IBackgroundJobRunLogWriter<DashboardSmokeTestJob> _runLogWriter;
     private int _runCount;
 
     public DashboardSmokeTestJob(
-        IBackgroundJobExecutionCancellation executionCancellation,
         ILogger<DashboardSmokeTestJob> logger,
         IBackgroundJobRunLogWriter<DashboardSmokeTestJob> runLogWriter)
     {
-        _executionCancellation = executionCancellation;
         _logger = logger;
         _runLogWriter = runLogWriter;
     }
@@ -45,12 +38,7 @@ internal sealed class DashboardSmokeTestJob : IStoppableRecurringBackgroundJob
         _runLogWriter.Information($"Run {runNumber} started.");
         _runLogWriter.Information("Waiting 10 seconds to simulate work.");
 
-        for (var second = 1; second <= 10; second++)
-        {
-            _executionCancellation.ThrowIfCancellationRequested();
-            await Task.Delay(TimeSpan.FromSeconds(1), _executionCancellation.CancellationToken);
-            _runLogWriter.Information($"Completed simulated second {second} of 10.");
-        }
+        await Task.Delay(TimeSpan.FromSeconds(10));
 
         if (runNumber % 2 == 0)
         {

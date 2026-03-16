@@ -21,9 +21,11 @@ docs/README_nuget.md
 
 The package guide includes:
 
+- a choose-your-job-type guide for `RecurringBackgroundJobBase` and `CronBackgroundJobBase`
 - stop-support setup
 - recurring and CRON job registration
 - consistent builder-based registration for Umbraco composers
+- extending a chosen job type with stop support through capability interfaces
 - how `CRON` relates to `Period` and `Delay`
 - multi-window CRON schedules
 - best practices for cooperative cancellation

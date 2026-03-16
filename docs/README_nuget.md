@@ -18,7 +18,19 @@ This package is for Umbraco solutions that already rely on `IRecurringBackground
 
 Add the generated NuGet package to an Umbraco 17 site and restart the application.
 
-## Register your first job
+## Choose your job type
+
+Pick the base class that matches how the job should be scheduled:
+
+- use `RecurringBackgroundJobBase` for normal recurring jobs driven by `Period` and `Delay`
+- use `CronBackgroundJobBase` for jobs driven by a CRON expression
+
+If the job should support cooperative stop requests from the dashboard, also implement the matching stoppable interface:
+
+- `IStoppableRecurringBackgroundJob`
+- `IStoppableCronBackgroundJob`
+
+## Register your first recurring job
 
 Create a recurring background job in your Umbraco app:
 
@@ -31,25 +43,17 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace MyUmbracoSite;
 
-internal sealed class MyFirstBackgroundJob : IRecurringBackgroundJob
+internal sealed class MyFirstBackgroundJob : RecurringBackgroundJobBase
 {
     private readonly ILogger<MyFirstBackgroundJob> _logger;
 
     public MyFirstBackgroundJob(ILogger<MyFirstBackgroundJob> logger) => _logger = logger;
 
-    public TimeSpan Period => TimeSpan.FromMinutes(15);
+    public override TimeSpan Period => TimeSpan.FromMinutes(15);
 
-    public TimeSpan Delay => TimeSpan.FromMinutes(1);
+    public override TimeSpan Delay => TimeSpan.FromMinutes(1);
 
-    public ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
-
-    public event EventHandler? PeriodChanged
-    {
-        add { }
-        remove { }
-    }
-
-    public Task RunJobAsync()
+    public override Task RunJobAsync()
     {
         _logger.LogInformation("MyFirstBackgroundJob ran at {Time}", DateTime.UtcNow);
         return Task.CompletedTask;
@@ -84,7 +88,7 @@ If `Period` and `Delay` are too limited for a job, you can opt in to CRON schedu
 CRON jobs are registered through Jobs Jobs Jobs, but they still run on top of Umbraco's recurring job infrastructure.
 
 - use `ICronBackgroundJob` or `CronBackgroundJobBase` when you want CRON semantics
-- use `IStoppableCronBackgroundJob` or `StoppableCronBackgroundJobBase` if the job should also support cooperative stop requests
+- use `IStoppableCronBackgroundJob` on a `CronBackgroundJobBase` job if the job should also support cooperative stop requests
 - register CRON jobs with `builder.AddCronBackgroundJob<TJob>()`
 
 `AddCronBackgroundJob<TJob>()` is an extension method on `IUmbracoBuilder`.
@@ -136,7 +140,7 @@ internal sealed class MyCronBackgroundJobsComposer : IComposer
 }
 ```
 
-If your job should also support stop requests, use `StoppableCronBackgroundJobBase` and still register it with `AddCronBackgroundJob<TJob>()`:
+If your job should also support stop requests, implement `IStoppableCronBackgroundJob` on a `CronBackgroundJobBase` job and still register it with `AddCronBackgroundJob<TJob>()`:
 
 ```csharp
 using JobsJobsJobs.BackgroundJobs;
@@ -229,7 +233,7 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace MyUmbracoSite;
 
-internal sealed class MyLoggedBackgroundJob : IRecurringBackgroundJob
+internal sealed class MyLoggedBackgroundJob : RecurringBackgroundJobBase
 {
     private readonly ILogger<MyLoggedBackgroundJob> _logger;
     private readonly IBackgroundJobRunLogWriter<MyLoggedBackgroundJob> _logWriter;
@@ -242,19 +246,11 @@ internal sealed class MyLoggedBackgroundJob : IRecurringBackgroundJob
         _logWriter = logWriter;
     }
 
-    public TimeSpan Period => TimeSpan.FromMinutes(15);
+    public override TimeSpan Period => TimeSpan.FromMinutes(15);
 
-    public TimeSpan Delay => TimeSpan.FromMinutes(1);
+    public override TimeSpan Delay => TimeSpan.FromMinutes(1);
 
-    public ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
-
-    public event EventHandler? PeriodChanged
-    {
-        add { }
-        remove { }
-    }
-
-    public Task RunJobAsync()
+    public override Task RunJobAsync()
     {
         _logger.LogInformation("MyLoggedBackgroundJob started at {Time}", DateTime.UtcNow);
         _logWriter.Information("Starting import phase");
@@ -281,9 +277,15 @@ The only thing you need to do in your own job is inject and use `IBackgroundJobR
 
 ## Stop support and cooperative cancellation
 
-The dashboard can request that a running job stops, but recurring jobs are stopped cooperatively rather than forcefully.
+The dashboard can request that a running job stops, but jobs are stopped cooperatively rather than forcefully.
 
-If you want a job to be stoppable from the dashboard, implement `IStoppableRecurringBackgroundJob` and inject `IBackgroundJobExecutionCancellation` into the job.
+The recommended pattern is:
+
+- choose `RecurringBackgroundJobBase` or `CronBackgroundJobBase` first
+- add `IStoppableRecurringBackgroundJob` or `IStoppableCronBackgroundJob` if the job should support stop
+- inject `IBackgroundJobExecutionCancellation` and observe it inside the job body
+
+For a stoppable recurring job, implement `IStoppableRecurringBackgroundJob` on top of `RecurringBackgroundJobBase` and inject `IBackgroundJobExecutionCancellation` into the job.
 
 ```csharp
 using System;
@@ -295,26 +297,18 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace MyUmbracoSite;
 
-internal sealed class MyStoppableBackgroundJob : IStoppableRecurringBackgroundJob
+internal sealed class MyStoppableBackgroundJob : RecurringBackgroundJobBase, IStoppableRecurringBackgroundJob
 {
     private readonly IBackgroundJobExecutionCancellation _executionCancellation;
 
     public MyStoppableBackgroundJob(IBackgroundJobExecutionCancellation executionCancellation)
         => _executionCancellation = executionCancellation;
 
-    public TimeSpan Period => TimeSpan.FromMinutes(15);
+    public override TimeSpan Period => TimeSpan.FromMinutes(15);
 
-    public TimeSpan Delay => TimeSpan.FromMinutes(1);
+    public override TimeSpan Delay => TimeSpan.FromMinutes(1);
 
-    public ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
-
-    public event EventHandler? PeriodChanged
-    {
-        add { }
-        remove { }
-    }
-
-    public async Task RunJobAsync()
+    public override async Task RunJobAsync()
     {
         for (var i = 0; i < 10; i++)
         {
@@ -333,7 +327,7 @@ Best practices for stoppable jobs:
 - use `finally` for cleanup that must happen whether the job succeeds, fails, or is stopped
 - do not treat stop as a hard kill; if the job never checks the cancellation signal, it will keep running until its own code finishes
 
-If a job does not implement `IStoppableRecurringBackgroundJob`, the dashboard will not show a stop action for that job.
+If a recurring job does not implement `IStoppableRecurringBackgroundJob`, the dashboard will not show a stop action for that job.
 
 ## Dashboard behavior
 

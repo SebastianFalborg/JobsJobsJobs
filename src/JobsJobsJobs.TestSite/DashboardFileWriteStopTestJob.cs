@@ -10,7 +10,7 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.TestSite;
 
-internal sealed class DashboardFileWriteStopTestJob : IStoppableRecurringBackgroundJob
+internal sealed class DashboardFileWriteStopTestJob : RecurringBackgroundJobBase, IStoppableRecurringBackgroundJob
 {
     private readonly IBackgroundJobExecutionCancellation _executionCancellation;
     private readonly IHostEnvironment _hostEnvironment;
@@ -30,19 +30,11 @@ internal sealed class DashboardFileWriteStopTestJob : IStoppableRecurringBackgro
         _runLogWriter = runLogWriter;
     }
 
-    public TimeSpan Period => TimeSpan.FromDays(1);
+    public override TimeSpan Period => TimeSpan.FromDays(1);
 
-    public TimeSpan Delay => TimeSpan.FromDays(1);
+    public override TimeSpan Delay => TimeSpan.FromDays(1);
 
-    public ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
-
-    public event EventHandler? PeriodChanged
-    {
-        add { }
-        remove { }
-    }
-
-    public async Task RunJobAsync()
+    public override async Task RunJobAsync()
     {
         var runNumber = Interlocked.Increment(ref _runCount);
         var outputDirectory = Path.Combine(_hostEnvironment.ContentRootPath, "App_Data", "JobsJobsJobs");

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Umbraco.Cms.Core.Events;
+using Umbraco.Cms.Core.Sync;
 using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.BackgroundJobs;
@@ -63,6 +64,23 @@ public enum BackgroundJobRunLogLevel
     Information,
     Warning,
     Error,
+}
+
+public abstract class RecurringBackgroundJobBase : IRecurringBackgroundJob
+{
+    public abstract TimeSpan Period { get; }
+
+    public virtual TimeSpan Delay => Period;
+
+    public virtual ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
+
+    public virtual event EventHandler? PeriodChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public abstract Task RunJobAsync();
 }
 
 public interface IStoppableRecurringBackgroundJob : IRecurringBackgroundJob

@@ -47,10 +47,6 @@ public abstract class CronBackgroundJobBase : ICronBackgroundJob
     public abstract Task RunJobAsync();
 }
 
-public abstract class StoppableCronBackgroundJobBase : CronBackgroundJobBase, IStoppableCronBackgroundJob
-{
-}
-
 public static class BackgroundJobCronRegistrationExtensions
 {
     private static readonly MethodInfo _addStoppableCronBackgroundJobCoreMethod = typeof(BackgroundJobCronRegistrationExtensions)
