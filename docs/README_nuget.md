@@ -60,9 +60,9 @@ internal sealed class MyFirstBackgroundJob : IRecurringBackgroundJob
 Register it in a composer:
 
 ```csharp
+using JobsJobsJobs.BackgroundJobs;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
-using Umbraco.Extensions;
 
 namespace MyUmbracoSite;
 
@@ -70,7 +70,7 @@ internal sealed class MyBackgroundJobsComposer : IComposer
 {
     public void Compose(IUmbracoBuilder builder)
     {
-        builder.Services.AddRecurringBackgroundJob<MyFirstBackgroundJob>();
+        builder.AddRecurringBackgroundJob<MyFirstBackgroundJob>();
     }
 }
 ```
@@ -85,16 +85,15 @@ CRON jobs are registered through Jobs Jobs Jobs, but they still run on top of Um
 
 - use `ICronBackgroundJob` or `CronBackgroundJobBase` when you want CRON semantics
 - use `IStoppableCronBackgroundJob` or `StoppableCronBackgroundJobBase` if the job should also support cooperative stop requests
-- register CRON jobs with `AddCronBackgroundJob<TJob>()` or `AddStoppableCronBackgroundJob<TJob>()`
+- register CRON jobs with `builder.AddCronBackgroundJob<TJob>()`
 
-`AddCronBackgroundJob<TJob>()` and `AddStoppableCronBackgroundJob<TJob>()` are extension methods.
+`AddCronBackgroundJob<TJob>()` is an extension method on `IUmbracoBuilder`.
 
 Make sure the composer imports:
 
 - `JobsJobsJobs.BackgroundJobs`
-- `Microsoft.Extensions.DependencyInjection`
 
-Otherwise you can get `CS1061: 'IServiceCollection' does not contain a definition for 'AddStoppableCronBackgroundJob'` even when the package is installed correctly.
+Otherwise you can get `CS1061: 'IUmbracoBuilder' does not contain a definition for 'AddCronBackgroundJob'` even when the package is installed correctly.
 
 ```csharp
 using System;
@@ -123,7 +122,6 @@ Register it in a composer:
 
 ```csharp
 using JobsJobsJobs.BackgroundJobs;
-using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 
@@ -133,16 +131,15 @@ internal sealed class MyCronBackgroundJobsComposer : IComposer
 {
     public void Compose(IUmbracoBuilder builder)
     {
-        builder.Services.AddCronBackgroundJob<MyCronBackgroundJob>();
+        builder.AddCronBackgroundJob<MyCronBackgroundJob>();
     }
 }
 ```
 
-If your job should also support stop requests, use `StoppableCronBackgroundJobBase` and register it with `AddStoppableCronBackgroundJob<TJob>()`:
+If your job should also support stop requests, use `StoppableCronBackgroundJobBase` and still register it with `AddCronBackgroundJob<TJob>()`:
 
 ```csharp
 using JobsJobsJobs.BackgroundJobs;
-using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 
@@ -152,10 +149,12 @@ internal sealed class MyStoppableCronBackgroundJobsComposer : IComposer
 {
     public void Compose(IUmbracoBuilder builder)
     {
-        builder.Services.AddStoppableCronBackgroundJob<MyStoppableCronBackgroundJob>();
+        builder.AddCronBackgroundJob<MyStoppableCronBackgroundJob>();
     }
 }
 ```
+
+If you prefer, the package still also exposes `AddStoppableCronBackgroundJob<TJob>()` and `IServiceCollection` overloads. The builder-based `AddCronBackgroundJob<TJob>()` API is the recommended happy path in Umbraco composers.
 
 How CRON relates to `Period` and `Delay`:
 
