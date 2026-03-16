@@ -1,13 +1,13 @@
 import { html as r, css as h, state as l, customElement as g } from "@umbraco-cms/backoffice/external/lit";
 import { UMB_AUTH_CONTEXT as b } from "@umbraco-cms/backoffice/auth";
-import { UmbLitElement as _ } from "@umbraco-cms/backoffice/lit-element";
-import { UmbTextStyles as f } from "@umbraco-cms/backoffice/style";
-var m = Object.defineProperty, v = Object.getOwnPropertyDescriptor, u = (e, t, s, i) => {
+import { UmbLitElement as m } from "@umbraco-cms/backoffice/lit-element";
+import { UmbTextStyles as _ } from "@umbraco-cms/backoffice/style";
+var f = Object.defineProperty, v = Object.getOwnPropertyDescriptor, u = (e, t, s, i) => {
   for (var a = i > 1 ? void 0 : i ? v(t, s) : t, n = e.length - 1, d; n >= 0; n--)
     (d = e[n]) && (a = (i ? d(t, s, a) : d(a)) || a);
-  return i && a && m(t, s, a), a;
+  return i && a && f(t, s, a), a;
 };
-let o = class extends _ {
+let o = class extends m {
   constructor() {
     super(), this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(b, (e) => {
       const t = e?.getOpenApiConfiguration();
@@ -108,8 +108,11 @@ let o = class extends _ {
   _renderSchedule(e) {
     return e.usesCronSchedule ? r`
         <div>${e.scheduleDisplay ?? e.cronExpression ?? "-"}</div>
-        <div class="muted">${e.timeZoneId ?? "UTC"}</div>
-      ` : r`${this._formatTimeSpan(e.period)}`;
+        <div class="muted">CRON · ${e.timeZoneId ?? "UTC"}</div>
+      ` : r`
+      <div>${this._formatTimeSpan(e.period)}</div>
+      <div class="muted">Interval</div>
+    `;
   }
   _formatDuration(e) {
     if (!e) return "-";
@@ -278,7 +281,7 @@ let o = class extends _ {
         <uui-button slot="header-actions" look="secondary" label="Refresh" @click=${this._reload} .state=${this._reloadState}>
           Refresh
         </uui-button>
-        <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger.</p>
+        <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
         <p class="muted refresh-info">Auto-refreshes every ${o._autoRefreshIntervalMs / 1e3} seconds when custom jobs are present.</p>
         ${this._errorMessage ? r`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
@@ -316,7 +319,7 @@ let o = class extends _ {
 };
 o._autoRefreshIntervalMs = 5e3;
 o.styles = [
-  f,
+  _,
   h`
       :host {
         display: block;
@@ -587,4 +590,4 @@ export {
   o as JobsJobsJobsBackgroundJobsDashboardElement,
   x as default
 };
-//# sourceMappingURL=background-jobs-dashboard.element-CG9Snt7V.js.map
+//# sourceMappingURL=background-jobs-dashboard.element-ZCwb2T3Q.js.map

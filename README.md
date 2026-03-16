@@ -23,6 +23,7 @@ The package guide includes:
 
 - stop-support setup
 - CRON job registration
+- required `using` directives for CRON registration extension methods
 - how `CRON` relates to `Period` and `Delay`
 - multi-window CRON schedules
 - best practices for cooperative cancellation
