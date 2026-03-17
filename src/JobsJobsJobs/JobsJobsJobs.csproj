@@ -9,7 +9,7 @@
   <PropertyGroup>
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.2.0-alpha001</Version>
     <Title>Jobs Jobs Jobs</Title>
     <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, cooperative stop support, and opt-in CRON scheduling.</Description>
     <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs;cron;recurring-jobs</PackageTags>
@@ -27,10 +27,11 @@
 
   <ItemGroup>
     <PackageReference Include="Cronos" Version="0.11.1" />
-    <PackageReference Include="Umbraco.Cms.Web.Website" Version="17.0.0" />
-    <PackageReference Include="Umbraco.Cms.Web.Common" Version="17.0.0" />
-    <PackageReference Include="Umbraco.Cms.Api.Common" Version="17.0.0" />
-    <PackageReference Include="Umbraco.Cms.Api.Management" Version="17.0.0" />
+    <PackageReference Include="MimeKit" Version="4.15.1" />
+    <PackageReference Include="Umbraco.Cms.Web.Website" Version="17.2.2" />
+    <PackageReference Include="Umbraco.Cms.Web.Common" Version="17.2.2" />
+    <PackageReference Include="Umbraco.Cms.Api.Common" Version="17.2.2" />
+    <PackageReference Include="Umbraco.Cms.Api.Management" Version="17.2.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -54,5 +55,4 @@
     <Exec Command="npm ci" WorkingDirectory="$(MSBuildProjectDirectory)\$(ClientAppDirectory)" />
     <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\$(ClientAppDirectory)" />
   </Target>
-
 </Project>

@@ -2,6 +2,13 @@
   "name": "jobsjobsjobs-repo",
   "private": true,
   "scripts": {
+    "tool:restore": "dotnet tool restore",
+    "format": "dotnet csharpier format .",
+    "format:check": "dotnet csharpier check .",
+    "restore": "dotnet restore ./src/JobsJobsJobs.sln",
+    "build:dotnet": "dotnet build ./src/JobsJobsJobs.sln --configuration Release --no-restore",
+    "test:dotnet": "dotnet test ./src/JobsJobsJobs.sln --configuration Release --no-build --verbosity normal",
+    "validate": "npm run tool:restore && npm run format:check && npm run restore && npm run build:dotnet && npm run test:dotnet",
     "build": "npm --prefix ./src/JobsJobsJobs/Client run build",
     "watch": "npm --prefix ./src/JobsJobsJobs/Client run watch",
     "generate-client": "npm --prefix ./src/JobsJobsJobs/Client run generate-client",

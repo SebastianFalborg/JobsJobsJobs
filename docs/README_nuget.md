@@ -6,6 +6,8 @@
 
 Jobs Jobs Jobs adds a backoffice dashboard for recurring Umbraco background jobs, including runtime status and manual triggering.
 
+This package is available on the Umbraco Marketplace, but it has not been tested on production workloads yet. Please do your own testing and validation before using it in production.
+
 ## Why use this instead of Hangfire?
 
 This package is for Umbraco solutions that already rely on `IRecurringBackgroundJob` and want a focused operational dashboard without adding a separate background processing platform.

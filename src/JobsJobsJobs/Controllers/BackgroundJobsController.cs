@@ -18,7 +18,8 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
     public BackgroundJobsController(
         IBackgroundJobDashboardService backgroundJobDashboardService,
         IBackgroundJobManualTriggerDispatcher backgroundJobManualTriggerDispatcher,
-        IBackgroundJobStopDispatcher backgroundJobStopDispatcher)
+        IBackgroundJobStopDispatcher backgroundJobStopDispatcher
+    )
     {
         _backgroundJobDashboardService = backgroundJobDashboardService;
         _backgroundJobManualTriggerDispatcher = backgroundJobManualTriggerDispatcher;
@@ -77,11 +78,7 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
             })
             .ToArray();
 
-        return Ok(new BackgroundJobDashboardCollectionResponseModel
-        {
-            Items = items,
-            Total = items.Length,
-        });
+        return Ok(new BackgroundJobDashboardCollectionResponseModel { Items = items, Total = items.Length });
     }
 
     [HttpPost("run/{alias}")]
@@ -122,8 +119,8 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
         };
     }
 
-    private static ProblemDetails CreateProblemDetails(int statusCode, string? detail)
-        => new()
+    private static ProblemDetails CreateProblemDetails(int statusCode, string? detail) =>
+        new()
         {
             Title = "Background job execution failed",
             Detail = detail,

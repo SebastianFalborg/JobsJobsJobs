@@ -39,8 +39,8 @@ internal sealed class BackgroundJobRunExecutionContextAccessor : IBackgroundJobR
 
     public BackgroundJobRunExecutionContext? Current => _current.Value;
 
-    public BackgroundJobRunExecutionContext Create(IRecurringBackgroundJob job, BackgroundJobRunTrigger trigger)
-        => new()
+    public BackgroundJobRunExecutionContext Create(IRecurringBackgroundJob job, BackgroundJobRunTrigger trigger) =>
+        new()
         {
             RunId = Guid.NewGuid(),
             JobAlias = BackgroundJobDashboardNaming.GetAlias(job),
@@ -83,9 +83,7 @@ public abstract class RecurringBackgroundJobBase : IRecurringBackgroundJob
     public abstract Task RunJobAsync();
 }
 
-public interface IStoppableRecurringBackgroundJob : IRecurringBackgroundJob
-{
-}
+public interface IStoppableRecurringBackgroundJob : IRecurringBackgroundJob { }
 
 public interface IBackgroundJobExecutionCancellation
 {
@@ -121,15 +119,16 @@ internal sealed class BackgroundJobStopCoordinator : IBackgroundJobStopCoordinat
 {
     private readonly ConcurrentDictionary<Guid, BackgroundJobActiveExecution> _executions = new();
 
-    public void Register(IRecurringBackgroundJob job, BackgroundJobRunExecutionContext context)
-        => _executions[context.RunId] = new BackgroundJobActiveExecution(
+    public void Register(IRecurringBackgroundJob job, BackgroundJobRunExecutionContext context) =>
+        _executions[context.RunId] = new BackgroundJobActiveExecution(
             context.JobAlias,
             job is IStoppableRecurringBackgroundJob,
-            new CancellationTokenSource());
+            new CancellationTokenSource()
+        );
 
     public void Complete(Guid runId)
     {
-        if (_executions.TryRemove(runId, out BackgroundJobActiveExecution? execution))
+        if (_executions.TryRemove(runId, out var execution))
         {
             execution.Dispose();
         }
@@ -137,7 +136,7 @@ internal sealed class BackgroundJobStopCoordinator : IBackgroundJobStopCoordinat
 
     public BackgroundJobStopRequestState RequestStop(string alias)
     {
-        BackgroundJobActiveExecution[] executions = _executions
+        var executions = _executions
             .Where(x => string.Equals(x.Value.JobAlias, alias, StringComparison.OrdinalIgnoreCase))
             .Select(x => x.Value)
             .ToArray();
@@ -154,23 +153,18 @@ internal sealed class BackgroundJobStopCoordinator : IBackgroundJobStopCoordinat
 
         var stopRequested = false;
 
-        foreach (BackgroundJobActiveExecution execution in executions)
+        foreach (var execution in executions)
         {
             stopRequested |= execution.TryRequestStop();
         }
 
-        return stopRequested
-            ? BackgroundJobStopRequestState.Success
-            : BackgroundJobStopRequestState.AlreadyRequested;
+        return stopRequested ? BackgroundJobStopRequestState.Success : BackgroundJobStopRequestState.AlreadyRequested;
     }
 
-    public bool IsStopRequested(Guid runId)
-        => _executions.TryGetValue(runId, out BackgroundJobActiveExecution? execution) && execution.IsStopRequested;
+    public bool IsStopRequested(Guid runId) => _executions.TryGetValue(runId, out var execution) && execution.IsStopRequested;
 
-    public CancellationToken GetCancellationToken(Guid runId)
-        => _executions.TryGetValue(runId, out BackgroundJobActiveExecution? execution)
-            ? execution.CancellationTokenSource.Token
-            : CancellationToken.None;
+    public CancellationToken GetCancellationToken(Guid runId) =>
+        _executions.TryGetValue(runId, out var execution) ? execution.CancellationTokenSource.Token : CancellationToken.None;
 }
 
 internal sealed class BackgroundJobExecutionCancellation : IBackgroundJobExecutionCancellation
@@ -180,7 +174,8 @@ internal sealed class BackgroundJobExecutionCancellation : IBackgroundJobExecuti
 
     public BackgroundJobExecutionCancellation(
         IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor,
-        IBackgroundJobStopCoordinator stopCoordinator)
+        IBackgroundJobStopCoordinator stopCoordinator
+    )
     {
         _runExecutionContextAccessor = runExecutionContextAccessor;
         _stopCoordinator = stopCoordinator;
@@ -190,7 +185,7 @@ internal sealed class BackgroundJobExecutionCancellation : IBackgroundJobExecuti
     {
         get
         {
-            BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+            var context = _runExecutionContextAccessor.Current;
             return context is not null && _stopCoordinator.IsStopRequested(context.RunId);
         }
     }
@@ -199,7 +194,7 @@ internal sealed class BackgroundJobExecutionCancellation : IBackgroundJobExecuti
     {
         get
         {
-            BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+            var context = _runExecutionContextAccessor.Current;
             return context is not null ? _stopCoordinator.GetCancellationToken(context.RunId) : CancellationToken.None;
         }
     }
@@ -240,50 +235,59 @@ internal sealed class BackgroundJobActiveExecution : IDisposable
     public void Dispose() => CancellationTokenSource.Dispose();
 }
 
-public class BackgroundJobRunLogEntry
+public record BackgroundJobRunLogEntry
 {
-    public DateTime LoggedAt { get; set; }
+    public DateTime LoggedAt { get; init; }
 
-    public string Level { get; set; } = string.Empty;
+    public string Level { get; init; } = string.Empty;
 
-    public string Message { get; set; } = string.Empty;
+    public string Message { get; init; } = string.Empty;
 }
 
-public class BackgroundJobRunHistoryItem
+public record BackgroundJobRunHistoryItem
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; init; }
 
-    public string JobAlias { get; set; } = string.Empty;
+    public string JobAlias { get; init; } = string.Empty;
 
-    public string JobName { get; set; } = string.Empty;
+    public string JobName { get; init; } = string.Empty;
 
-    public string Trigger { get; set; } = string.Empty;
+    public string Trigger { get; init; } = string.Empty;
 
-    public BackgroundJobStatus Status { get; set; }
+    public BackgroundJobStatus Status { get; init; }
 
-    public DateTime StartedAt { get; set; }
+    public DateTime StartedAt { get; init; }
 
-    public DateTime? CompletedAt { get; set; }
+    public DateTime? CompletedAt { get; init; }
 
-    public TimeSpan? Duration { get; set; }
+    public TimeSpan? Duration { get; init; }
 
-    public string? Message { get; set; }
+    public string? Message { get; init; }
 
-    public string? Error { get; set; }
+    public string? Error { get; init; }
 
-    public IReadOnlyCollection<BackgroundJobRunLogEntry> Logs { get; set; } = Array.Empty<BackgroundJobRunLogEntry>();
+    public IReadOnlyCollection<BackgroundJobRunLogEntry> Logs { get; init; } = Array.Empty<BackgroundJobRunLogEntry>();
 }
 
 public interface IBackgroundJobRunHistoryService
 {
-    public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, BackgroundJobRunTrigger? trigger = null, int maxLogsPerRun = 20);
+    public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(
+        IEnumerable<string> aliases,
+        BackgroundJobRunTrigger? trigger = null,
+        int maxLogsPerRun = 20
+    );
 }
 
 public interface IBackgroundJobRunRecorder
 {
     public void MarkStarted(IRecurringBackgroundJob job, BackgroundJobRunTrigger trigger);
 
-    public void MarkCompleted(IRecurringBackgroundJob job, BackgroundJobStatus status, EventMessages messages, IDictionary<string, object?>? state = null);
+    public void MarkCompleted(
+        IRecurringBackgroundJob job,
+        BackgroundJobStatus status,
+        EventMessages messages,
+        IDictionary<string, object?>? state = null
+    );
 
     public void MarkFailed(IRecurringBackgroundJob job, EventMessages messages, IDictionary<string, object?>? state = null);
 

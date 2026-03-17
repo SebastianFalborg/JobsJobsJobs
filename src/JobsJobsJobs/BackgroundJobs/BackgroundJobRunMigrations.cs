@@ -23,7 +23,8 @@ internal sealed class BackgroundJobRunMigrationHandler : INotificationAsyncHandl
         ICoreScopeProvider scopeProvider,
         IMigrationPlanExecutor migrationPlanExecutor,
         IKeyValueService keyValueService,
-        IRuntimeState runtimeState)
+        IRuntimeState runtimeState
+    )
     {
         _scopeProvider = scopeProvider;
         _migrationPlanExecutor = migrationPlanExecutor;
@@ -38,56 +39,89 @@ internal sealed class BackgroundJobRunMigrationHandler : INotificationAsyncHandl
             return Task.CompletedTask;
         }
 
+        return RunMigrationsAsync();
+    }
+
+    private async Task RunMigrationsAsync()
+    {
         var migrationPlan = new MigrationPlan("JobsJobsJobs.BackgroundJobRunHistory.v2")
             .From(string.Empty)
             .To<RecreateBackgroundJobRunTablesMigration>("background-job-run-tables-v2");
 
         var upgrader = new Upgrader(migrationPlan);
-        upgrader.Execute(_migrationPlanExecutor, _scopeProvider, _keyValueService);
-
-        return Task.CompletedTask;
+        await upgrader.ExecuteAsync(_migrationPlanExecutor, _scopeProvider, _keyValueService);
     }
 }
 
-internal abstract class BackgroundJobRunTablesMigrationBase : MigrationBase
+internal abstract class BackgroundJobRunTablesMigrationBase : AsyncMigrationBase
 {
     protected BackgroundJobRunTablesMigrationBase(IMigrationContext context)
-        : base(context)
-    {
-    }
+        : base(context) { }
 
-    protected void CreateRunTable()
-        => Create.Table(BackgroundJobRunDto.TableName)
-            .WithColumn(nameof(BackgroundJobRunDto.Id)).AsGuid().PrimaryKey().NotNullable()
-            .WithColumn(nameof(BackgroundJobRunDto.JobAlias)).AsString(255).NotNullable()
-            .WithColumn(nameof(BackgroundJobRunDto.JobName)).AsString(255).NotNullable()
-            .WithColumn(nameof(BackgroundJobRunDto.Trigger)).AsString(64).NotNullable()
-            .WithColumn(nameof(BackgroundJobRunDto.Status)).AsString(64).NotNullable()
-            .WithColumn(nameof(BackgroundJobRunDto.StartedAt)).AsDateTime().NotNullable()
-            .WithColumn(nameof(BackgroundJobRunDto.CompletedAt)).AsDateTime().Nullable()
-            .WithColumn(nameof(BackgroundJobRunDto.DurationMs)).AsInt64().Nullable()
-            .WithColumn(nameof(BackgroundJobRunDto.Message)).AsString(4000).Nullable()
-            .WithColumn(nameof(BackgroundJobRunDto.Error)).AsString(4000).Nullable()
+    protected void CreateRunTable() =>
+        Create
+            .Table(BackgroundJobRunDto.TableName)
+            .WithColumn(nameof(BackgroundJobRunDto.Id))
+            .AsGuid()
+            .PrimaryKey()
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunDto.JobAlias))
+            .AsString(255)
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunDto.JobName))
+            .AsString(255)
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunDto.Trigger))
+            .AsString(64)
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunDto.Status))
+            .AsString(64)
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunDto.StartedAt))
+            .AsDateTime()
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunDto.CompletedAt))
+            .AsDateTime()
+            .Nullable()
+            .WithColumn(nameof(BackgroundJobRunDto.DurationMs))
+            .AsInt64()
+            .Nullable()
+            .WithColumn(nameof(BackgroundJobRunDto.Message))
+            .AsString(4000)
+            .Nullable()
+            .WithColumn(nameof(BackgroundJobRunDto.Error))
+            .AsString(4000)
+            .Nullable()
             .Do();
 
-    protected void CreateRunLogTable()
-        => Create.Table(BackgroundJobRunLogDto.TableName)
-            .WithColumn(nameof(BackgroundJobRunLogDto.Id)).AsGuid().PrimaryKey().NotNullable()
-            .WithColumn(nameof(BackgroundJobRunLogDto.RunId)).AsGuid().NotNullable()
-            .WithColumn(nameof(BackgroundJobRunLogDto.Level)).AsString(64).NotNullable()
-            .WithColumn(nameof(BackgroundJobRunLogDto.Message)).AsString(4000).NotNullable()
-            .WithColumn(nameof(BackgroundJobRunLogDto.LoggedAt)).AsDateTime().NotNullable()
+    protected void CreateRunLogTable() =>
+        Create
+            .Table(BackgroundJobRunLogDto.TableName)
+            .WithColumn(nameof(BackgroundJobRunLogDto.Id))
+            .AsGuid()
+            .PrimaryKey()
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunLogDto.RunId))
+            .AsGuid()
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunLogDto.Level))
+            .AsString(64)
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunLogDto.Message))
+            .AsString(4000)
+            .NotNullable()
+            .WithColumn(nameof(BackgroundJobRunLogDto.LoggedAt))
+            .AsDateTime()
+            .NotNullable()
             .Do();
 }
 
 internal sealed class CreateBackgroundJobRunTablesMigration : BackgroundJobRunTablesMigrationBase
 {
     public CreateBackgroundJobRunTablesMigration(IMigrationContext context)
-        : base(context)
-    {
-    }
+        : base(context) { }
 
-    protected override void Migrate()
+    protected override Task MigrateAsync()
     {
         if (TableExists(BackgroundJobRunDto.TableName) is false)
         {
@@ -98,17 +132,17 @@ internal sealed class CreateBackgroundJobRunTablesMigration : BackgroundJobRunTa
         {
             CreateRunLogTable();
         }
+
+        return Task.CompletedTask;
     }
 }
 
 internal sealed class RecreateBackgroundJobRunTablesMigration : BackgroundJobRunTablesMigrationBase
 {
     public RecreateBackgroundJobRunTablesMigration(IMigrationContext context)
-        : base(context)
-    {
-    }
+        : base(context) { }
 
-    protected override void Migrate()
+    protected override Task MigrateAsync()
     {
         if (TableExists(BackgroundJobRunLogDto.TableName))
         {
@@ -122,5 +156,7 @@ internal sealed class RecreateBackgroundJobRunTablesMigration : BackgroundJobRun
 
         CreateRunTable();
         CreateRunLogTable();
+
+        return Task.CompletedTask;
     }
 }

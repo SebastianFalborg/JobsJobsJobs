@@ -1,0 +1,8 @@
+[2026-03-17 15:10:31.826 +01:00] Run 1 started.
+[2026-03-17 15:10:31.834 +01:00] Run 1 iteration 1. Stop requested: False.
+[2026-03-17 15:10:32.840 +01:00] Run 1 iteration 2. Stop requested: False.
+[2026-03-17 15:10:33.846 +01:00] Run 1 iteration 3. Stop requested: False.
+[2026-03-17 15:10:34.864 +01:00] Run 1 iteration 4. Stop requested: False.
+[2026-03-17 15:10:35.877 +01:00] Run 1 iteration 5. Stop requested: False.
+[2026-03-17 15:10:36.893 +01:00] Run 1 iteration 6. Stop requested: False.
+[2026-03-17 15:10:36.995 +01:00] Run 1 observed stop request and is shutting down cleanly.

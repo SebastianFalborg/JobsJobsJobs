@@ -22,7 +22,8 @@ internal sealed class DashboardFileWriteStopTestJob : RecurringBackgroundJobBase
         IBackgroundJobExecutionCancellation executionCancellation,
         IHostEnvironment hostEnvironment,
         ILogger<DashboardFileWriteStopTestJob> logger,
-        IBackgroundJobRunLogWriter<DashboardFileWriteStopTestJob> runLogWriter)
+        IBackgroundJobRunLogWriter<DashboardFileWriteStopTestJob> runLogWriter
+    )
     {
         _executionCancellation = executionCancellation;
         _hostEnvironment = hostEnvironment;
@@ -52,7 +53,8 @@ internal sealed class DashboardFileWriteStopTestJob : RecurringBackgroundJobBase
             {
                 _executionCancellation.ThrowIfCancellationRequested();
 
-                var line = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz}] Run {runNumber} iteration {iteration}. Stop requested: {_executionCancellation.IsStopRequested}.";
+                var line =
+                    $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz}] Run {runNumber} iteration {iteration}. Stop requested: {_executionCancellation.IsStopRequested}.";
                 await AppendLineAsync(outputPath, line);
                 _runLogWriter.Information($"Wrote iteration {iteration}.");
                 await Task.Delay(TimeSpan.FromSeconds(1), _executionCancellation.CancellationToken);
@@ -63,12 +65,14 @@ internal sealed class DashboardFileWriteStopTestJob : RecurringBackgroundJobBase
         }
         catch (OperationCanceledException) when (_executionCancellation.IsStopRequested)
         {
-            await AppendLineAsync(outputPath, $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz}] Run {runNumber} observed stop request and is shutting down cleanly.");
+            await AppendLineAsync(
+                outputPath,
+                $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz}] Run {runNumber} observed stop request and is shutting down cleanly."
+            );
             _runLogWriter.Warning("Stop request observed while writing file output.");
             throw;
         }
     }
 
-    private static Task AppendLineAsync(string outputPath, string line)
-        => File.AppendAllTextAsync(outputPath, line + Environment.NewLine);
+    private static Task AppendLineAsync(string outputPath, string line) => File.AppendAllTextAsync(outputPath, line + Environment.NewLine);
 }

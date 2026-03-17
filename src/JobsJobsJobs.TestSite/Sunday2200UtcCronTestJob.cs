@@ -18,7 +18,8 @@ internal sealed class Sunday2200UtcCronTestJob : CronBackgroundJobBase, IStoppab
     public Sunday2200UtcCronTestJob(
         IBackgroundJobExecutionCancellation executionCancellation,
         ILogger<Sunday2200UtcCronTestJob> logger,
-        IBackgroundJobRunLogWriter<Sunday2200UtcCronTestJob> runLogWriter)
+        IBackgroundJobRunLogWriter<Sunday2200UtcCronTestJob> runLogWriter
+    )
     {
         _executionCancellation = executionCancellation;
         _logger = logger;
@@ -31,17 +32,13 @@ internal sealed class Sunday2200UtcCronTestJob : CronBackgroundJobBase, IStoppab
 
     public override ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
 
-    public override Task RunJobAsync()
-        => RunAsync();
+    public override Task RunJobAsync() => RunAsync();
 
     private async Task RunAsync()
     {
         var runNumber = Interlocked.Increment(ref _runCount);
 
-        _logger.LogInformation(
-            "Sunday2200UtcCronTestJob run {RunNumber} started. UtcNow: {UtcNow}",
-            runNumber,
-            DateTimeOffset.UtcNow);
+        _logger.LogInformation("Sunday2200UtcCronTestJob run {RunNumber} started. UtcNow: {UtcNow}", runNumber, DateTimeOffset.UtcNow);
 
         _runLogWriter.Information($"CRON run {runNumber} started.");
 

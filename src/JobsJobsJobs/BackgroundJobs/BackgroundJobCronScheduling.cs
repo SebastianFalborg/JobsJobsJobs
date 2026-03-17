@@ -28,9 +28,7 @@ public interface ICronBackgroundJob
     public Task RunJobAsync();
 }
 
-public interface IStoppableCronBackgroundJob : ICronBackgroundJob
-{
-}
+public interface IStoppableCronBackgroundJob : ICronBackgroundJob { }
 
 public abstract class CronBackgroundJobBase : ICronBackgroundJob
 {
@@ -49,8 +47,10 @@ public abstract class CronBackgroundJobBase : ICronBackgroundJob
 
 public static class BackgroundJobCronRegistrationExtensions
 {
-    private static readonly MethodInfo _addStoppableCronBackgroundJobCoreMethod = typeof(BackgroundJobCronRegistrationExtensions)
-        .GetMethod(nameof(AddStoppableCronBackgroundJobCore), BindingFlags.NonPublic | BindingFlags.Static)!;
+    private static readonly MethodInfo _addStoppableCronBackgroundJobCoreMethod = typeof(BackgroundJobCronRegistrationExtensions).GetMethod(
+        nameof(AddStoppableCronBackgroundJobCore),
+        BindingFlags.NonPublic | BindingFlags.Static
+    )!;
 
     public static IUmbracoBuilder AddCronBackgroundJob<TJob>(this IUmbracoBuilder builder)
         where TJob : class, ICronBackgroundJob
@@ -88,8 +88,7 @@ public static class BackgroundJobCronRegistrationExtensions
     }
 
     private static void AddStoppableCronBackgroundJobCore<TJob>(IServiceCollection services)
-        where TJob : class, IStoppableCronBackgroundJob
-        => services.AddRecurringBackgroundJob<StoppableCronRecurringBackgroundJobAdapter<TJob>>();
+        where TJob : class, IStoppableCronBackgroundJob => services.AddRecurringBackgroundJob<StoppableCronRecurringBackgroundJobAdapter<TJob>>();
 }
 
 internal sealed class BackgroundJobCronSuppressionCoordinator : IBackgroundJobCronSuppressionCoordinator
@@ -109,7 +108,7 @@ internal sealed class BackgroundJobCronSuppressionCoordinator : IBackgroundJobCr
 
     private static bool TryConsume(ConcurrentDictionary<string, int> dictionary, string alias)
     {
-        while (dictionary.TryGetValue(alias, out int count))
+        while (dictionary.TryGetValue(alias, out var count))
         {
             if (count <= 1)
             {
@@ -170,9 +169,7 @@ internal sealed class BackgroundJobCronScheduler : IBackgroundJobCronScheduler
     private readonly DateTime _startedAtUtc;
 
     public BackgroundJobCronScheduler(IBackgroundJobRunHistoryService runHistoryService)
-        : this(runHistoryService, () => DateTime.UtcNow)
-    {
-    }
+        : this(runHistoryService, () => DateTime.UtcNow) { }
 
     internal BackgroundJobCronScheduler(IBackgroundJobRunHistoryService runHistoryService, Func<DateTime> utcNow)
     {
@@ -182,29 +179,25 @@ internal sealed class BackgroundJobCronScheduler : IBackgroundJobCronScheduler
 
     public bool ShouldExecute(string alias, string cronExpression, TimeZoneInfo timeZone, DateTime startedAtUtc)
     {
-        IReadOnlyList<CronExpression> expressions = _expressions.GetOrAdd(cronExpression, ParseExpressions);
-        IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> latestAutomaticRuns = _runHistoryService.GetLatestRuns(
-            new[] { alias },
-            BackgroundJobRunTrigger.Automatic,
-            maxLogsPerRun: 0);
+        var expressions = _expressions.GetOrAdd(cronExpression, ParseExpressions);
+        var latestAutomaticRuns = _runHistoryService.GetLatestRuns(new[] { alias }, BackgroundJobRunTrigger.Automatic, maxLogsPerRun: 0);
 
-        DateTime evaluationTimeUtc = EnsureUtc(startedAtUtc);
+        var evaluationTimeUtc = EnsureUtc(startedAtUtc);
 
-        DateTime baseline = latestAutomaticRuns.TryGetValue(alias, out BackgroundJobRunHistoryItem? latestAutomaticRun)
+        var baseline = latestAutomaticRuns.TryGetValue(alias, out var latestAutomaticRun)
             ? EnsureUtc(latestAutomaticRun.StartedAt)
             : _startedAtUtc.AddTicks(-1);
 
         return expressions.Any(expression =>
         {
-            DateTime? nextOccurrence = expression.GetNextOccurrence(baseline, timeZone);
+            var nextOccurrence = expression.GetNextOccurrence(baseline, timeZone);
             return nextOccurrence.HasValue && nextOccurrence.Value <= evaluationTimeUtc;
         });
     }
 
     private static IReadOnlyList<CronExpression> ParseExpressions(string cronExpression)
     {
-        string[] parts = cronExpression
-            .Split(new[] { ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var parts = cronExpression.Split(new[] { ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (parts.Length == 0)
         {
@@ -221,8 +214,8 @@ internal sealed class BackgroundJobCronScheduler : IBackgroundJobCronScheduler
         }
     }
 
-    private static DateTime EnsureUtc(DateTime value)
-        => value.Kind switch
+    private static DateTime EnsureUtc(DateTime value) =>
+        value.Kind switch
         {
             DateTimeKind.Utc => value,
             DateTimeKind.Local => value.ToUniversalTime(),
@@ -242,7 +235,8 @@ internal class CronRecurringBackgroundJobAdapter<TJob> : IRecurringBackgroundJob
         TJob job,
         IBackgroundJobCronScheduler cronScheduler,
         IBackgroundJobCronSuppressionCoordinator cronSuppressionCoordinator,
-        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor)
+        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor
+    )
     {
         _job = job;
         _cronScheduler = cronScheduler;
@@ -272,13 +266,13 @@ internal class CronRecurringBackgroundJobAdapter<TJob> : IRecurringBackgroundJob
 
     public string? TimeZoneId => _job.TimeZone.Id;
 
-    public bool ShouldExecute(BackgroundJobRunExecutionContext context)
-        => context.Trigger == BackgroundJobRunTrigger.Manual
-            || _cronScheduler.ShouldExecute(BackgroundJobDashboardNaming.GetAlias(typeof(TJob)), _job.CronExpression, _job.TimeZone, context.StartedAt);
+    public bool ShouldExecute(BackgroundJobRunExecutionContext context) =>
+        context.Trigger == BackgroundJobRunTrigger.Manual
+        || _cronScheduler.ShouldExecute(BackgroundJobDashboardNaming.GetAlias(typeof(TJob)), _job.CronExpression, _job.TimeZone, context.StartedAt);
 
     public virtual async Task RunJobAsync()
     {
-        string alias = BackgroundJobDashboardNaming.GetAlias(typeof(TJob));
+        var alias = BackgroundJobDashboardNaming.GetAlias(typeof(TJob));
         if (_cronSuppressionCoordinator.TryConsumeJobSkip(alias))
         {
             return;
@@ -300,8 +294,7 @@ internal sealed class StoppableCronRecurringBackgroundJobAdapter<TJob> : CronRec
         TJob job,
         IBackgroundJobCronScheduler cronScheduler,
         IBackgroundJobCronSuppressionCoordinator cronSuppressionCoordinator,
-        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor)
-        : base(job, cronScheduler, cronSuppressionCoordinator, runExecutionContextAccessor)
-    {
-    }
+        IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor
+    )
+        : base(job, cronScheduler, cronSuppressionCoordinator, runExecutionContextAccessor) { }
 }

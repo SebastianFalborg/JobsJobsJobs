@@ -23,10 +23,7 @@ internal sealed class Sunday2230UtcCronTestJob : CronBackgroundJobBase
     public override Task RunJobAsync()
     {
         var runNumber = Interlocked.Increment(ref _runCount);
-        _logger.LogInformation(
-            "Sunday2230UtcCronTestJob ran. Run {RunNumber}. UtcNow: {UtcNow}",
-            runNumber,
-            DateTimeOffset.UtcNow);
+        _logger.LogInformation("Sunday2230UtcCronTestJob ran. Run {RunNumber}. UtcNow: {UtcNow}", runNumber, DateTimeOffset.UtcNow);
 
         return Task.CompletedTask;
     }

@@ -1,14 +1,13 @@
-name: Release Package
-
-# This action will start when a correctly formatted tag is pushed (e.g. 0.1.0)
+name: CI
 
 on:
+  pull_request:
   push:
-    tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+    branches:
+      - main
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,9 +38,3 @@ jobs:
 
       - name: Test solution
         run: dotnet test src/JobsJobsJobs.sln --configuration Release --no-build --verbosity normal
-
-      - name: Build & Pack
-        run: dotnet pack src/JobsJobsJobs/JobsJobsJobs.csproj -c Release --no-build /p:Version=${{github.ref_name}}
-
-      - name: Push to NuGet
-        run: dotnet nuget push **/*.nupkg -k ${{secrets.NUGET_API_KEY}} -s https://api.nuget.org/v3/index.json

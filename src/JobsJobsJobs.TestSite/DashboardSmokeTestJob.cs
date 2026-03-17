@@ -1,36 +1,24 @@
 using JobsJobsJobs.BackgroundJobs;
-using Umbraco.Cms.Core.Sync;
-using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.TestSite;
 
-internal sealed class DashboardSmokeTestJob : IRecurringBackgroundJob
+internal sealed class DashboardSmokeTestJob : RecurringBackgroundJobBase
 {
     private readonly ILogger<DashboardSmokeTestJob> _logger;
     private readonly IBackgroundJobRunLogWriter<DashboardSmokeTestJob> _runLogWriter;
     private int _runCount;
 
-    public DashboardSmokeTestJob(
-        ILogger<DashboardSmokeTestJob> logger,
-        IBackgroundJobRunLogWriter<DashboardSmokeTestJob> runLogWriter)
+    public DashboardSmokeTestJob(ILogger<DashboardSmokeTestJob> logger, IBackgroundJobRunLogWriter<DashboardSmokeTestJob> runLogWriter)
     {
         _logger = logger;
         _runLogWriter = runLogWriter;
     }
 
-    public TimeSpan Period => TimeSpan.FromDays(1);
+    public override TimeSpan Period => TimeSpan.FromDays(1);
 
-    public TimeSpan Delay => TimeSpan.FromDays(1);
+    public override TimeSpan Delay => TimeSpan.FromDays(1);
 
-    public ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
-
-    public event EventHandler? PeriodChanged
-    {
-        add { }
-        remove { }
-    }
-
-    public async Task RunJobAsync()
+    public override async Task RunJobAsync()
     {
         var runNumber = Interlocked.Increment(ref _runCount);
 

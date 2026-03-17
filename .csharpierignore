@@ -1,0 +1,14 @@
+**/bin/**
+**/obj/**
+**/node_modules/**
+artifacts/**
+src/JobsJobsJobs/Client/**
+src/JobsJobsJobs.TestSite/uSync/**
+src/JobsJobsJobs/wwwroot/App_Plugins/**
+src/JobsJobsJobs/BackgroundJobs/BackgroundJobDashboardModels.cs
+src/JobsJobsJobs/BackgroundJobs/BackgroundJobDashboardNotificationHandler.cs
+src/JobsJobsJobs/BackgroundJobs/BackgroundJobDashboardService.cs
+src/JobsJobsJobs/BackgroundJobs/BackgroundJobRunPersistence.cs
+src/JobsJobsJobs/Composers/JobsJobsJobsApiComposer.cs
+src/JobsJobsJobs/Controllers/BackgroundJobsControllerBase.cs
+src/JobsJobsJobs/Controllers/JobsJobsJobsApiControllerBase.cs
