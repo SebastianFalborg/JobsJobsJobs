@@ -61,6 +61,8 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   private _authToken?: string | (() => Promise<string>);
 
+  private _authInitialized = false;
+
   private _authCredentials: RequestCredentials = "include";
 
   private _autoRefreshHandle?: number;
@@ -91,6 +93,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       const config = authContext?.getOpenApiConfiguration();
+      this._authInitialized = authContext !== undefined;
       this._authToken = config?.token;
       this._authCredentials = config?.credentials ?? "include";
       this._load();
@@ -99,7 +102,9 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   override connectedCallback() {
     super.connectedCallback();
-    this._startAutoRefresh();
+    if (this._items.length > 0) {
+      this._startAutoRefresh();
+    }
   }
 
   override disconnectedCallback() {
@@ -116,13 +121,28 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   }
 
   private async _load() {
+    if (this._authInitialized === false) {
+      return;
+    }
+
+    const authToken = await this._getAuthToken();
+
+    if (!authToken) {
+      this._stopAutoRefresh();
+      return;
+    }
+
     this._isLoading = true;
     this._errorMessage = "";
 
     try {
-      const response = await this._fetch("/umbraco/jobsjobsjobs/api/v1/background-jobs", {
+      const response = await this._fetch(
+        "/umbraco/jobsjobsjobs/api/v1/background-jobs",
+        authToken,
+        {
         method: "GET",
-      });
+        },
+      );
 
       if (!response.ok) {
         throw new Error(await this._readProblem(response));
@@ -176,9 +196,19 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     this._errorMessage = "";
 
     try {
-      const response = await this._fetch(`/umbraco/jobsjobsjobs/api/v1/background-jobs/run/${encodeURIComponent(alias)}`, {
-        method: "POST",
-      });
+      const authToken = await this._getAuthToken();
+
+      if (!authToken) {
+        throw new Error("Backoffice authentication is not ready yet.");
+      }
+
+      const response = await this._fetch(
+        `/umbraco/jobsjobsjobs/api/v1/background-jobs/run/${encodeURIComponent(alias)}`,
+        authToken,
+        {
+          method: "POST",
+        },
+      );
 
       if (!response.ok) {
         throw new Error(await this._readProblem(response));
@@ -197,9 +227,19 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     this._errorMessage = "";
 
     try {
-      const response = await this._fetch(`/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(alias)}`, {
-        method: "POST",
-      });
+      const authToken = await this._getAuthToken();
+
+      if (!authToken) {
+        throw new Error("Backoffice authentication is not ready yet.");
+      }
+
+      const response = await this._fetch(
+        `/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(alias)}`,
+        authToken,
+        {
+          method: "POST",
+        },
+      );
 
       if (!response.ok) {
         throw new Error(await this._readProblem(response));
@@ -213,15 +253,10 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
   }
 
-  private async _fetch(input: RequestInfo | URL, init?: RequestInit) {
+  private async _fetch(input: RequestInfo | URL, authToken: string, init?: RequestInit) {
     const headers = new Headers(init?.headers);
     headers.set("Content-Type", "application/json");
-
-    const authToken = await this._getAuthToken();
-
-    if (authToken) {
-      headers.set("Authorization", `Bearer ${authToken}`);
-    }
+    headers.set("Authorization", `Bearer ${authToken}`);
 
     return fetch(input, {
       ...init,
@@ -463,16 +498,16 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       (item) => html`
         <tr>
           <td class="job-cell">
-            <strong>${item.name}</strong>
+            <strong class="job-name">${item.name}</strong>
             <div class="muted job-meta" title=${item.type}>${item.type}</div>
           </td>
-          <td><span class=${this._getStatusClass(item)}>${this._getStatusLabel(item)}</span></td>
-          <td>${this._formatDate(item.lastSucceededAt)}</td>
-          <td>${this._formatDate(item.lastFailedAt)}</td>
-          <td>${this._formatDate(item.lastStartedAt)}</td>
-          <td>${this._formatDuration(item.lastDuration)}</td>
-          <td>${this._renderSchedule(item)}</td>
-          <td>
+          <td class="status-cell"><span class=${this._getStatusClass(item)}>${this._getStatusLabel(item)}</span></td>
+          <td class="date-cell">${this._formatDate(item.lastSucceededAt)}</td>
+          <td class="date-cell">${this._formatDate(item.lastFailedAt)}</td>
+          <td class="date-cell">${this._formatDate(item.lastStartedAt)}</td>
+          <td class="duration-cell">${this._formatDuration(item.lastDuration)}</td>
+          <td class="schedule-cell">${this._renderSchedule(item)}</td>
+          <td class="actions-cell">
             <div class="action-buttons">
               ${item.isRunning && item.canStop
                 ? html`
@@ -528,14 +563,14 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
           <table>
             <thead>
               <tr>
-                <th>Job</th>
-                <th>Status</th>
-                <th>Last success</th>
-                <th>Last failure</th>
-                <th>Last start</th>
-                <th>Last duration</th>
-                <th>Schedule</th>
-                <th></th>
+                <th class="column-job">Job</th>
+                <th class="column-status">Status</th>
+                <th class="column-date">Last success</th>
+                <th class="column-date">Last failure</th>
+                <th class="column-date">Last start</th>
+                <th class="column-duration">Last duration</th>
+                <th class="column-schedule">Schedule</th>
+                <th class="column-actions"></th>
               </tr>
             </thead>
             <tbody>
@@ -562,7 +597,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       table {
         width: 100%;
         border-collapse: collapse;
-        table-layout: fixed;
+        table-layout: auto;
       }
 
       th,
@@ -622,8 +657,15 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       }
 
       .job-cell {
-        width: 30%;
-        min-width: 16rem;
+        width: 36%;
+        min-width: 18rem;
+      }
+
+      .job-name {
+        display: block;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.35;
       }
 
       .job-meta {
@@ -641,6 +683,39 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         border-radius: 999px;
         font-size: var(--uui-type-small-size);
         font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .column-job,
+      .job-cell {
+        min-width: 18rem;
+      }
+
+      .column-status,
+      .status-cell {
+        width: 1%;
+        white-space: nowrap;
+      }
+
+      .column-date,
+      .date-cell {
+        width: 9.5rem;
+      }
+
+      .column-duration,
+      .duration-cell {
+        width: 7rem;
+        white-space: nowrap;
+      }
+
+      .column-schedule,
+      .schedule-cell {
+        width: 9rem;
+      }
+
+      .column-actions,
+      .actions-cell {
+        width: 1%;
         white-space: nowrap;
       }
 
@@ -675,6 +750,25 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         display: flex;
         flex-wrap: wrap;
         gap: var(--uui-size-space-2);
+        justify-content: flex-end;
+      }
+
+      @media (max-width: 1200px) {
+        .job-cell,
+        .column-job {
+          min-width: 20rem;
+          width: 42%;
+        }
+
+        .column-date,
+        .date-cell {
+          width: 8rem;
+        }
+
+        .column-schedule,
+        .schedule-cell {
+          width: 7.5rem;
+        }
       }
 
       .details td {

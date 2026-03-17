@@ -1,21 +1,21 @@
-import { html as r, css as h, state as l, customElement as g } from "@umbraco-cms/backoffice/external/lit";
-import { UMB_AUTH_CONTEXT as b } from "@umbraco-cms/backoffice/auth";
-import { UmbLitElement as m } from "@umbraco-cms/backoffice/lit-element";
-import { UmbTextStyles as _ } from "@umbraco-cms/backoffice/style";
-var f = Object.defineProperty, v = Object.getOwnPropertyDescriptor, u = (e, t, s, i) => {
-  for (var a = i > 1 ? void 0 : i ? v(t, s) : t, n = e.length - 1, d; n >= 0; n--)
-    (d = e[n]) && (a = (i ? d(t, s, a) : d(a)) || a);
-  return i && a && f(t, s, a), a;
+import { html as r, css as p, state as u, customElement as g } from "@umbraco-cms/backoffice/external/lit";
+import { UMB_AUTH_CONTEXT as m } from "@umbraco-cms/backoffice/auth";
+import { UmbLitElement as b } from "@umbraco-cms/backoffice/lit-element";
+import { UmbTextStyles as f } from "@umbraco-cms/backoffice/style";
+var _ = Object.defineProperty, v = Object.getOwnPropertyDescriptor, l = (e, t, s, a) => {
+  for (var o = a > 1 ? void 0 : a ? v(t, s) : t, n = e.length - 1, d; n >= 0; n--)
+    (d = e[n]) && (o = (a ? d(t, s, o) : d(o)) || o);
+  return a && o && _(t, s, o), o;
 };
-let o = class extends m {
+let i = class extends b {
   constructor() {
-    super(), this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(b, (e) => {
+    super(), this._authInitialized = !1, this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(m, (e) => {
       const t = e?.getOpenApiConfiguration();
-      this._authToken = t?.token, this._authCredentials = t?.credentials ?? "include", this._load();
+      this._authInitialized = e !== void 0, this._authToken = t?.token, this._authCredentials = t?.credentials ?? "include", this._load();
     });
   }
   connectedCallback() {
-    super.connectedCallback(), this._startAutoRefresh();
+    super.connectedCallback(), this._items.length > 0 && this._startAutoRefresh();
   }
   disconnectedCallback() {
     this._stopAutoRefresh(), super.disconnectedCallback();
@@ -24,17 +24,28 @@ let o = class extends m {
     return typeof this._authToken == "function" ? this._authToken() : this._authToken;
   }
   async _load() {
+    if (this._authInitialized === !1)
+      return;
+    const e = await this._getAuthToken();
+    if (!e) {
+      this._stopAutoRefresh();
+      return;
+    }
     this._isLoading = !0, this._errorMessage = "";
     try {
-      const e = await this._fetch("/umbraco/jobsjobsjobs/api/v1/background-jobs", {
-        method: "GET"
-      });
-      if (!e.ok)
-        throw new Error(await this._readProblem(e));
-      const t = await e.json();
-      this._items = t.items ?? [], this._items.length > 0 ? this._startAutoRefresh() : this._stopAutoRefresh();
-    } catch (e) {
-      this._errorMessage = e instanceof Error ? e.message : "Could not load background jobs.";
+      const t = await this._fetch(
+        "/umbraco/jobsjobsjobs/api/v1/background-jobs",
+        e,
+        {
+          method: "GET"
+        }
+      );
+      if (!t.ok)
+        throw new Error(await this._readProblem(t));
+      const s = await t.json();
+      this._items = s.items ?? [], this._items.length > 0 ? this._startAutoRefresh() : this._stopAutoRefresh();
+    } catch (t) {
+      this._errorMessage = t instanceof Error ? t.message : "Could not load background jobs.";
     } finally {
       this._isLoading = !1;
     }
@@ -45,7 +56,7 @@ let o = class extends m {
   _startAutoRefresh() {
     this._stopAutoRefresh(), this._autoRefreshHandle = window.setInterval(() => {
       this._autoRefresh();
-    }, o._autoRefreshIntervalMs);
+    }, i._autoRefreshIntervalMs);
   }
   _stopAutoRefresh() {
     this._autoRefreshHandle !== void 0 && (window.clearInterval(this._autoRefreshHandle), this._autoRefreshHandle = void 0);
@@ -56,11 +67,18 @@ let o = class extends m {
   async _runJob(e) {
     this._runStates = { ...this._runStates, [e]: "waiting" }, this._errorMessage = "";
     try {
-      const t = await this._fetch(`/umbraco/jobsjobsjobs/api/v1/background-jobs/run/${encodeURIComponent(e)}`, {
-        method: "POST"
-      });
-      if (!t.ok)
-        throw new Error(await this._readProblem(t));
+      const t = await this._getAuthToken();
+      if (!t)
+        throw new Error("Backoffice authentication is not ready yet.");
+      const s = await this._fetch(
+        `/umbraco/jobsjobsjobs/api/v1/background-jobs/run/${encodeURIComponent(e)}`,
+        t,
+        {
+          method: "POST"
+        }
+      );
+      if (!s.ok)
+        throw new Error(await this._readProblem(s));
       this._runStates = { ...this._runStates, [e]: "success" }, await this._load();
     } catch (t) {
       this._runStates = { ...this._runStates, [e]: "failed" }, this._errorMessage = t instanceof Error ? t.message : `Could not run ${e}.`;
@@ -69,24 +87,29 @@ let o = class extends m {
   async _stopJob(e) {
     this._stopStates = { ...this._stopStates, [e]: "waiting" }, this._errorMessage = "";
     try {
-      const t = await this._fetch(`/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(e)}`, {
-        method: "POST"
-      });
-      if (!t.ok)
-        throw new Error(await this._readProblem(t));
+      const t = await this._getAuthToken();
+      if (!t)
+        throw new Error("Backoffice authentication is not ready yet.");
+      const s = await this._fetch(
+        `/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(e)}`,
+        t,
+        {
+          method: "POST"
+        }
+      );
+      if (!s.ok)
+        throw new Error(await this._readProblem(s));
       await this._load(), this._stopStates = { ...this._stopStates, [e]: void 0 };
     } catch (t) {
       this._stopStates = { ...this._stopStates, [e]: "failed" }, this._errorMessage = t instanceof Error ? t.message : `Could not stop ${e}.`;
     }
   }
-  async _fetch(e, t) {
-    const s = new Headers(t?.headers);
-    s.set("Content-Type", "application/json");
-    const i = await this._getAuthToken();
-    return i && s.set("Authorization", `Bearer ${i}`), fetch(e, {
-      ...t,
+  async _fetch(e, t, s) {
+    const a = new Headers(s?.headers);
+    return a.set("Content-Type", "application/json"), a.set("Authorization", `Bearer ${t}`), fetch(e, {
+      ...s,
       credentials: this._authCredentials,
-      headers: s
+      headers: a
     });
   }
   async _readProblem(e) {
@@ -119,12 +142,12 @@ let o = class extends m {
     const t = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(e);
     if (!t)
       return e;
-    const s = Number(t[1] ?? "0"), i = Number(t[2]), a = Number(t[3]), n = Number(t[4]), d = t[5] ?? "", p = d ? Math.round(+`0.${d}` * 1e3) : 0;
-    if (s > 0 || i > 0 || a > 0) {
+    const s = Number(t[1] ?? "0"), a = Number(t[2]), o = Number(t[3]), n = Number(t[4]), d = t[5] ?? "", h = d ? Math.round(+`0.${d}` * 1e3) : 0;
+    if (s > 0 || a > 0 || o > 0) {
       const c = [];
-      return s > 0 && c.push(`${s}d`), i > 0 && c.push(`${i}h`), a > 0 && c.push(`${a}m`), n > 0 && c.push(`${n}s`), c.join(" ");
+      return s > 0 && c.push(`${s}d`), a > 0 && c.push(`${a}h`), o > 0 && c.push(`${o}m`), n > 0 && c.push(`${n}s`), c.join(" ");
     }
-    return n > 0 ? p === 0 ? `${n}s` : `${n}.${p.toString().padStart(3, "0").replace(/0+$/, "")}s` : `${p}ms`;
+    return n > 0 ? h === 0 ? `${n}s` : `${n}.${h.toString().padStart(3, "0").replace(/0+$/, "")}s` : `${h}ms`;
   }
   _getStatusLabel(e) {
     return e.stopRequested ? "StopRequested" : e.isRunning ? "Running" : e.lastStatus;
@@ -143,11 +166,11 @@ let o = class extends m {
     return this._normalizeText(e) === this._normalizeText(t);
   }
   _renderCurrentStateDetails(e) {
-    const t = this._normalizeText(e.lastError), s = this._normalizeText(e.lastMessage), i = this._normalizeText(e.latestRun?.error), a = this._normalizeText(e.latestRun?.message);
-    return t && this._isSameText(t, i) === !1 ? r`
+    const t = this._normalizeText(e.lastError), s = this._normalizeText(e.lastMessage), a = this._normalizeText(e.latestRun?.error), o = this._normalizeText(e.latestRun?.message);
+    return t && this._isSameText(t, a) === !1 ? r`
         <div><strong>Error:</strong> ${t}</div>
-        ${s && this._isSameText(s, a) === !1 ? r`<div><strong>Message:</strong> ${s}</div>` : ""}
-      ` : s && this._isSameText(s, a) === !1 ? r`<div><strong>Message:</strong> ${s}</div>` : "";
+        ${s && this._isSameText(s, o) === !1 ? r`<div><strong>Message:</strong> ${s}</div>` : ""}
+      ` : s && this._isSameText(s, o) === !1 ? r`<div><strong>Message:</strong> ${s}</div>` : "";
   }
   _matchesFilter(e) {
     switch (this._statusFilter) {
@@ -238,16 +261,16 @@ let o = class extends m {
       (t) => r`
         <tr>
           <td class="job-cell">
-            <strong>${t.name}</strong>
+            <strong class="job-name">${t.name}</strong>
             <div class="muted job-meta" title=${t.type}>${t.type}</div>
           </td>
-          <td><span class=${this._getStatusClass(t)}>${this._getStatusLabel(t)}</span></td>
-          <td>${this._formatDate(t.lastSucceededAt)}</td>
-          <td>${this._formatDate(t.lastFailedAt)}</td>
-          <td>${this._formatDate(t.lastStartedAt)}</td>
-          <td>${this._formatDuration(t.lastDuration)}</td>
-          <td>${this._renderSchedule(t)}</td>
-          <td>
+          <td class="status-cell"><span class=${this._getStatusClass(t)}>${this._getStatusLabel(t)}</span></td>
+          <td class="date-cell">${this._formatDate(t.lastSucceededAt)}</td>
+          <td class="date-cell">${this._formatDate(t.lastFailedAt)}</td>
+          <td class="date-cell">${this._formatDate(t.lastStartedAt)}</td>
+          <td class="duration-cell">${this._formatDuration(t.lastDuration)}</td>
+          <td class="schedule-cell">${this._renderSchedule(t)}</td>
+          <td class="actions-cell">
             <div class="action-buttons">
               ${t.isRunning && t.canStop ? r`
                     <uui-button
@@ -282,7 +305,7 @@ let o = class extends m {
           Refresh
         </uui-button>
         <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
-        <p class="muted refresh-info">Auto-refreshes every ${o._autoRefreshIntervalMs / 1e3} seconds when custom jobs are present.</p>
+        <p class="muted refresh-info">Auto-refreshes every ${i._autoRefreshIntervalMs / 1e3} seconds when custom jobs are present.</p>
         ${this._errorMessage ? r`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
           <label class="filter-label" for="status-filter">Status filter</label>
@@ -298,14 +321,14 @@ let o = class extends m {
           <table>
             <thead>
               <tr>
-                <th>Job</th>
-                <th>Status</th>
-                <th>Last success</th>
-                <th>Last failure</th>
-                <th>Last start</th>
-                <th>Last duration</th>
-                <th>Schedule</th>
-                <th></th>
+                <th class="column-job">Job</th>
+                <th class="column-status">Status</th>
+                <th class="column-date">Last success</th>
+                <th class="column-date">Last failure</th>
+                <th class="column-date">Last start</th>
+                <th class="column-duration">Last duration</th>
+                <th class="column-schedule">Schedule</th>
+                <th class="column-actions"></th>
               </tr>
             </thead>
             <tbody>
@@ -317,10 +340,10 @@ let o = class extends m {
     `;
   }
 };
-o._autoRefreshIntervalMs = 5e3;
-o.styles = [
-  _,
-  h`
+i._autoRefreshIntervalMs = 5e3;
+i.styles = [
+  f,
+  p`
       :host {
         display: block;
         padding: var(--uui-size-layout-1);
@@ -333,7 +356,7 @@ o.styles = [
       table {
         width: 100%;
         border-collapse: collapse;
-        table-layout: fixed;
+        table-layout: auto;
       }
 
       th,
@@ -393,8 +416,15 @@ o.styles = [
       }
 
       .job-cell {
-        width: 30%;
-        min-width: 16rem;
+        width: 36%;
+        min-width: 18rem;
+      }
+
+      .job-name {
+        display: block;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.35;
       }
 
       .job-meta {
@@ -412,6 +442,39 @@ o.styles = [
         border-radius: 999px;
         font-size: var(--uui-type-small-size);
         font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .column-job,
+      .job-cell {
+        min-width: 18rem;
+      }
+
+      .column-status,
+      .status-cell {
+        width: 1%;
+        white-space: nowrap;
+      }
+
+      .column-date,
+      .date-cell {
+        width: 9.5rem;
+      }
+
+      .column-duration,
+      .duration-cell {
+        width: 7rem;
+        white-space: nowrap;
+      }
+
+      .column-schedule,
+      .schedule-cell {
+        width: 9rem;
+      }
+
+      .column-actions,
+      .actions-cell {
+        width: 1%;
         white-space: nowrap;
       }
 
@@ -446,6 +509,25 @@ o.styles = [
         display: flex;
         flex-wrap: wrap;
         gap: var(--uui-size-space-2);
+        justify-content: flex-end;
+      }
+
+      @media (max-width: 1200px) {
+        .job-cell,
+        .column-job {
+          min-width: 20rem;
+          width: 42%;
+        }
+
+        .column-date,
+        .date-cell {
+          width: 8rem;
+        }
+
+        .column-schedule,
+        .schedule-cell {
+          width: 7.5rem;
+        }
       }
 
       .details td {
@@ -561,33 +643,33 @@ o.styles = [
       }
     `
 ];
-u([
-  l()
-], o.prototype, "_items", 2);
-u([
-  l()
-], o.prototype, "_isLoading", 2);
-u([
-  l()
-], o.prototype, "_reloadState", 2);
-u([
-  l()
-], o.prototype, "_runStates", 2);
-u([
-  l()
-], o.prototype, "_stopStates", 2);
-u([
-  l()
-], o.prototype, "_errorMessage", 2);
-u([
-  l()
-], o.prototype, "_statusFilter", 2);
-o = u([
+l([
+  u()
+], i.prototype, "_items", 2);
+l([
+  u()
+], i.prototype, "_isLoading", 2);
+l([
+  u()
+], i.prototype, "_reloadState", 2);
+l([
+  u()
+], i.prototype, "_runStates", 2);
+l([
+  u()
+], i.prototype, "_stopStates", 2);
+l([
+  u()
+], i.prototype, "_errorMessage", 2);
+l([
+  u()
+], i.prototype, "_statusFilter", 2);
+i = l([
   g("jobs-jobs-jobs-background-jobs-dashboard")
-], o);
-const x = o;
+], i);
+const k = i;
 export {
-  o as JobsJobsJobsBackgroundJobsDashboardElement,
-  x as default
+  i as JobsJobsJobsBackgroundJobsDashboardElement,
+  k as default
 };
-//# sourceMappingURL=background-jobs-dashboard.element-ZCwb2T3Q.js.map
+//# sourceMappingURL=background-jobs-dashboard.element-BqoeIb9l.js.map

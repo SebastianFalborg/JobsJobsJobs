@@ -10,6 +10,9 @@ internal sealed class DashboardSmokeTestComposer : IComposer
     {
         builder.AddRecurringBackgroundJob<DashboardSmokeTestJob>();
         builder.AddRecurringBackgroundJob<DashboardFileWriteStopTestJob>();
+        builder.AddRecurringBackgroundJob<DashboardHeavyResourceStressJob>();
+        builder.AddRecurringBackgroundJob<DashboardLogStormTestJob>();
+        builder.AddCronBackgroundJob<EveryTwoMinutesLongRunningOverlapTestJob>();
         builder.AddCronBackgroundJob<Sunday2200UtcCronTestJob>();
         builder.AddCronBackgroundJob<Sunday2230UtcCronTestJob>();
     }
