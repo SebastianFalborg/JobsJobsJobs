@@ -75,6 +75,23 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
                             Message = log.Message,
                         }),
                     },
+                RecentRuns = x.RecentRuns.Select(run => new BackgroundJobDashboardRunResponseModel
+                {
+                    Id = run.Id,
+                    Trigger = run.Trigger,
+                    Status = run.Status.ToString(),
+                    StartedAt = run.StartedAt,
+                    CompletedAt = run.CompletedAt,
+                    Duration = run.Duration,
+                    Message = run.Message,
+                    Error = run.Error,
+                    Logs = run.Logs.Select(log => new BackgroundJobDashboardRunLogResponseModel
+                    {
+                        LoggedAt = log.LoggedAt,
+                        Level = log.Level,
+                        Message = log.Message,
+                    }),
+                }),
             })
             .ToArray();
 

@@ -8,17 +8,17 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.TestSite;
 
-internal sealed class Sunday2200UtcCronTestJob : CronBackgroundJobBase, IStoppableCronBackgroundJob
+internal sealed class Daily1000To1100UtcCronTestJob : CronBackgroundJobBase, IStoppableCronBackgroundJob
 {
     private readonly IBackgroundJobExecutionCancellation _executionCancellation;
-    private readonly ILogger<Sunday2200UtcCronTestJob> _logger;
-    private readonly IBackgroundJobRunLogWriter<Sunday2200UtcCronTestJob> _runLogWriter;
+    private readonly ILogger<Daily1000To1100UtcCronTestJob> _logger;
+    private readonly IBackgroundJobRunLogWriter<Daily1000To1100UtcCronTestJob> _runLogWriter;
     private int _runCount;
 
-    public Sunday2200UtcCronTestJob(
+    public Daily1000To1100UtcCronTestJob(
         IBackgroundJobExecutionCancellation executionCancellation,
-        ILogger<Sunday2200UtcCronTestJob> logger,
-        IBackgroundJobRunLogWriter<Sunday2200UtcCronTestJob> runLogWriter
+        ILogger<Daily1000To1100UtcCronTestJob> logger,
+        IBackgroundJobRunLogWriter<Daily1000To1100UtcCronTestJob> runLogWriter
     )
     {
         _executionCancellation = executionCancellation;
@@ -26,7 +26,7 @@ internal sealed class Sunday2200UtcCronTestJob : CronBackgroundJobBase, IStoppab
         _runLogWriter = runLogWriter;
     }
 
-    public override string CronExpression => "* 22-23 * * SUN";
+    public override string CronExpression => "* 10 * * *; 0 11 * * *";
 
     public override TimeZoneInfo TimeZone => TimeZoneInfo.Utc;
 
@@ -38,7 +38,7 @@ internal sealed class Sunday2200UtcCronTestJob : CronBackgroundJobBase, IStoppab
     {
         var runNumber = Interlocked.Increment(ref _runCount);
 
-        _logger.LogInformation("Sunday2200UtcCronTestJob run {RunNumber} started. UtcNow: {UtcNow}", runNumber, DateTimeOffset.UtcNow);
+        _logger.LogInformation("Daily1000To1100UtcCronTestJob run {RunNumber} started. UtcNow: {UtcNow}", runNumber, DateTimeOffset.UtcNow);
 
         _runLogWriter.Information($"CRON run {runNumber} started.");
 
@@ -50,6 +50,6 @@ internal sealed class Sunday2200UtcCronTestJob : CronBackgroundJobBase, IStoppab
         }
 
         _runLogWriter.Information("CRON run completed successfully.");
-        _logger.LogInformation("Sunday2200UtcCronTestJob run {RunNumber} completed", runNumber);
+        _logger.LogInformation("Daily1000To1100UtcCronTestJob run {RunNumber} completed", runNumber);
     }
 }

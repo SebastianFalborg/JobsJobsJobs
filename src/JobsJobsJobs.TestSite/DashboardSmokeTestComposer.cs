@@ -9,11 +9,11 @@ internal sealed class DashboardSmokeTestComposer : IComposer
     public void Compose(IUmbracoBuilder builder)
     {
         builder.AddRecurringBackgroundJob<DashboardSmokeTestJob>();
-        builder.AddRecurringBackgroundJob<DashboardFileWriteStopTestJob>();
+        builder.AddCronBackgroundJob<DashboardFileWriteStopTestJob>();
         builder.AddRecurringBackgroundJob<DashboardHeavyResourceStressJob>();
         builder.AddRecurringBackgroundJob<DashboardLogStormTestJob>();
         builder.AddCronBackgroundJob<EveryTwoMinutesLongRunningOverlapTestJob>();
-        builder.AddCronBackgroundJob<Sunday2200UtcCronTestJob>();
-        builder.AddCronBackgroundJob<Sunday2230UtcCronTestJob>();
+        builder.AddCronBackgroundJob<Daily1000To1100UtcCronTestJob>();
+        builder.AddCronBackgroundJob<Daily1030To1130UtcCronTestJob>();
     }
 }

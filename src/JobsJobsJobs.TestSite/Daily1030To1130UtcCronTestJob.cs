@@ -7,14 +7,14 @@ using Umbraco.Cms.Core.Sync;
 
 namespace JobsJobsJobs.TestSite;
 
-internal sealed class Sunday2230UtcCronTestJob : CronBackgroundJobBase
+internal sealed class Daily1030To1130UtcCronTestJob : CronBackgroundJobBase
 {
-    private readonly ILogger<Sunday2230UtcCronTestJob> _logger;
+    private readonly ILogger<Daily1030To1130UtcCronTestJob> _logger;
     private int _runCount;
 
-    public Sunday2230UtcCronTestJob(ILogger<Sunday2230UtcCronTestJob> logger) => _logger = logger;
+    public Daily1030To1130UtcCronTestJob(ILogger<Daily1030To1130UtcCronTestJob> logger) => _logger = logger;
 
-    public override string CronExpression => "30-59 22 * * SUN; * 23 * * SUN";
+    public override string CronExpression => "30-59 10 * * *; 0-30 11 * * *";
 
     public override TimeZoneInfo TimeZone => TimeZoneInfo.Utc;
 
@@ -23,7 +23,7 @@ internal sealed class Sunday2230UtcCronTestJob : CronBackgroundJobBase
     public override Task RunJobAsync()
     {
         var runNumber = Interlocked.Increment(ref _runCount);
-        _logger.LogInformation("Sunday2230UtcCronTestJob ran. Run {RunNumber}. UtcNow: {UtcNow}", runNumber, DateTimeOffset.UtcNow);
+        _logger.LogInformation("Daily1030To1130UtcCronTestJob ran. Run {RunNumber}. UtcNow: {UtcNow}", runNumber, DateTimeOffset.UtcNow);
 
         return Task.CompletedTask;
     }

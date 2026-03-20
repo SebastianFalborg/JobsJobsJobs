@@ -50,6 +50,8 @@ public record BackgroundJobDashboardItemResponseModel
     public string? LastMessage { get; init; }
 
     public BackgroundJobDashboardRunResponseModel? LatestRun { get; init; }
+
+    public IEnumerable<BackgroundJobDashboardRunResponseModel> RecentRuns { get; init; } = Array.Empty<BackgroundJobDashboardRunResponseModel>();
 }
 
 public record BackgroundJobDashboardRunResponseModel

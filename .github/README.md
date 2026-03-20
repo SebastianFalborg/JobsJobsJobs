@@ -4,13 +4,14 @@
 [![NuGet](https://img.shields.io/nuget/vpre/Umbraco.Community.JobsJobsJobs?color=0273B3)](https://www.nuget.org/packages/Umbraco.Community.JobsJobsJobs)
 [![GitHub license](https://img.shields.io/github/license/SebastianFalborg/JobsJobsJobs?color=8AB803)](../LICENSE)
 
-Jobs Jobs Jobs adds a backoffice dashboard for recurring Umbraco background jobs, including runtime status, manual triggering, persisted run history, and stored run logs.
+Jobs Jobs Jobs is a simple job scheduler and backoffice dashboard for Umbraco, built on top of Umbraco's existing background jobs infrastructure. It adds runtime status, manual triggering, persisted run history, stored run logs, cooperative stop support, and opt-in CRON scheduling.
 
 ## Why use this instead of Hangfire?
 
-This package is aimed at Umbraco solutions that already use `IRecurringBackgroundJob` and want a simpler, more Umbraco-native dashboard experience.
+This package is for Umbraco projects that want a simpler, more Umbraco-native alternative to external schedulers when the goal is scheduled jobs with visibility and control inside the Umbraco backoffice.
 
-- Focused UI for recurring Umbraco jobs
+- Built on top of Umbraco's own background jobs model
+- Focused UI for scheduled Umbraco jobs
 - Manual triggering directly from the backoffice
 - Persisted run history and stored logs
 - Lower setup and operational overhead for simple scheduled work

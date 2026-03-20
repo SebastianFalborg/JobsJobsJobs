@@ -276,6 +276,12 @@ public interface IBackgroundJobRunHistoryService
         BackgroundJobRunTrigger? trigger = null,
         int maxLogsPerRun = 20
     );
+
+    public IReadOnlyDictionary<string, IReadOnlyCollection<BackgroundJobRunHistoryItem>> GetRecentRuns(
+        IEnumerable<string> aliases,
+        int maxRuns = 5,
+        int maxLogsPerRun = 0
+    );
 }
 
 public interface IBackgroundJobRunRecorder

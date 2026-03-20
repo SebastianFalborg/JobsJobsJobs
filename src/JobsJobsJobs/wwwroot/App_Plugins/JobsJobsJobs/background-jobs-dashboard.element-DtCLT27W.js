@@ -1,500 +1,234 @@
-import { css, customElement, html, state } from "@umbraco-cms/backoffice/external/lit";
-import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
-import type { UUIButtonState } from "@umbraco-cms/backoffice/external/uui";
-import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
-import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-
-interface BackgroundJobRunLogEntry {
-  loggedAt: string;
-  level: string;
-  message: string;
-}
-
-interface BackgroundJobLatestRun {
-  id: string;
-  trigger: string;
-  status: string;
-  startedAt: string;
-  completedAt?: string;
-  duration?: string;
-  message?: string;
-  error?: string;
-  logs: Array<BackgroundJobRunLogEntry>;
-}
-
-interface BackgroundJobDashboardItem {
-  alias: string;
-  name: string;
-  type: string;
-  period: string;
-  delay: string;
-  usesCronSchedule: boolean;
-  scheduleDisplay?: string;
-  cronExpression?: string;
-  timeZoneId?: string;
-  serverRoles: Array<string>;
-  allowManualTrigger: boolean;
-  canStop: boolean;
-  isRunning: boolean;
-  stopRequested: boolean;
-  lastStartedAt?: string;
-  lastCompletedAt?: string;
-  lastDuration?: string;
-  lastSucceededAt?: string;
-  lastFailedAt?: string;
-  lastStatus: string;
-  lastError?: string;
-  lastMessage?: string;
-  latestRun?: BackgroundJobLatestRun;
-  recentRuns: Array<BackgroundJobLatestRun>;
-}
-
-interface BackgroundJobDashboardCollectionResponseModel {
-  total: number;
-  items: Array<BackgroundJobDashboardItem>;
-}
-
-type BackgroundJobFilter = "all" | "running" | "failed" | "succeeded" | "idle";
-
-@customElement("jobs-jobs-jobs-background-jobs-dashboard")
-export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
-  private static readonly _autoRefreshIntervalMs = 5000;
-
-  private readonly _dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-
-  private _authToken?: string | (() => Promise<string>);
-
-  private _authInitialized = false;
-
-  private _authCredentials: RequestCredentials = "include";
-
-  private _autoRefreshHandle?: number;
-
-  @state()
-  private _items: Array<BackgroundJobDashboardItem> = [];
-
-  @state()
-  private _isLoading = false;
-
-  @state()
-  private _reloadState: UUIButtonState = undefined;
-
-  @state()
-  private _runStates: Record<string, UUIButtonState> = {};
-
-  @state()
-  private _stopStates: Record<string, UUIButtonState> = {};
-
-  @state()
-  private _errorMessage = "";
-
-  @state()
-  private _statusFilter: BackgroundJobFilter = "all";
-
+import { html as t, css as g, state as l, customElement as h } from "@umbraco-cms/backoffice/external/lit";
+import { UMB_AUTH_CONTEXT as b } from "@umbraco-cms/backoffice/auth";
+import { UmbLitElement as v } from "@umbraco-cms/backoffice/lit-element";
+import { UmbTextStyles as m } from "@umbraco-cms/backoffice/style";
+var f = Object.defineProperty, _ = Object.getOwnPropertyDescriptor, u = (s, e, r, a) => {
+  for (var i = a > 1 ? void 0 : a ? _(e, r) : e, n = s.length - 1, d; n >= 0; n--)
+    (d = s[n]) && (i = (a ? d(e, r, i) : d(i)) || i);
+  return a && i && f(e, r, i), i;
+};
+let o = class extends v {
   constructor() {
-    super();
-
-    this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
-      const config = authContext?.getOpenApiConfiguration();
-      this._authInitialized = authContext !== undefined;
-      this._authToken = config?.token;
-      this._authCredentials = config?.credentials ?? "include";
-      this._load();
+    super(), this._authInitialized = !1, this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(b, (s) => {
+      const e = s?.getOpenApiConfiguration();
+      this._authInitialized = s !== void 0, this._authToken = e?.token, this._authCredentials = e?.credentials ?? "include", this._load();
     });
   }
-
-  override connectedCallback() {
-    super.connectedCallback();
-    if (this._items.length > 0) {
-      this._startAutoRefresh();
-    }
+  connectedCallback() {
+    super.connectedCallback(), this._items.length > 0 && this._startAutoRefresh();
   }
-
-  override disconnectedCallback() {
-    this._stopAutoRefresh();
-    super.disconnectedCallback();
+  disconnectedCallback() {
+    this._stopAutoRefresh(), super.disconnectedCallback();
   }
-
-  private async _getAuthToken(): Promise<string | undefined> {
-    if (typeof this._authToken === "function") {
-      return this._authToken();
-    }
-
-    return this._authToken;
+  async _getAuthToken() {
+    return typeof this._authToken == "function" ? this._authToken() : this._authToken;
   }
-
-  private async _load() {
-    if (this._authInitialized === false) {
+  async _load() {
+    if (this._authInitialized === !1)
       return;
-    }
-
-    const authToken = await this._getAuthToken();
-
-    if (!authToken) {
+    const s = await this._getAuthToken();
+    if (!s) {
       this._stopAutoRefresh();
       return;
     }
-
-    this._isLoading = true;
-    this._errorMessage = "";
-
+    this._isLoading = !0, this._errorMessage = "";
     try {
-      const response = await this._fetch(
+      const e = await this._fetch(
         "/umbraco/jobsjobsjobs/api/v1/background-jobs",
-        authToken,
+        s,
         {
-        method: "GET",
-        },
+          method: "GET"
+        }
       );
-
-      if (!response.ok) {
-        throw new Error(await this._readProblem(response));
-      }
-
-      const data = (await response.json()) as BackgroundJobDashboardCollectionResponseModel;
-      this._items = data.items ?? [];
-
-      if (this._items.length > 0) {
-        this._startAutoRefresh();
-      } else {
-        this._stopAutoRefresh();
-      }
-    } catch (error) {
-      this._errorMessage = error instanceof Error ? error.message : "Could not load background jobs.";
+      if (!e.ok)
+        throw new Error(await this._readProblem(e));
+      const r = await e.json();
+      this._items = r.items ?? [], this._items.length > 0 ? this._startAutoRefresh() : this._stopAutoRefresh();
+    } catch (e) {
+      this._errorMessage = e instanceof Error ? e.message : "Could not load background jobs.";
     } finally {
-      this._isLoading = false;
+      this._isLoading = !1;
     }
   }
-
-  private async _reload() {
-    this._reloadState = "waiting";
-    await this._load();
-    this._reloadState = this._errorMessage ? "failed" : "success";
+  async _reload() {
+    this._reloadState = "waiting", await this._load(), this._reloadState = this._errorMessage ? "failed" : "success";
   }
-
-  private _startAutoRefresh() {
-    this._stopAutoRefresh();
-    this._autoRefreshHandle = window.setInterval(() => {
-      void this._autoRefresh();
-    }, JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs);
+  _startAutoRefresh() {
+    this._stopAutoRefresh(), this._autoRefreshHandle = window.setInterval(() => {
+      this._autoRefresh();
+    }, o._autoRefreshIntervalMs);
   }
-
-  private _stopAutoRefresh() {
-    if (this._autoRefreshHandle !== undefined) {
-      window.clearInterval(this._autoRefreshHandle);
-      this._autoRefreshHandle = undefined;
-    }
+  _stopAutoRefresh() {
+    this._autoRefreshHandle !== void 0 && (window.clearInterval(this._autoRefreshHandle), this._autoRefreshHandle = void 0);
   }
-
-  private async _autoRefresh() {
-    if (this._isLoading) {
-      return;
-    }
-
-    await this._load();
+  async _autoRefresh() {
+    this._isLoading || await this._load();
   }
-
-  private async _runJob(alias: string) {
-    this._runStates = { ...this._runStates, [alias]: "waiting" };
-    this._errorMessage = "";
-
+  async _runJob(s) {
+    this._runStates = { ...this._runStates, [s]: "waiting" }, this._errorMessage = "";
     try {
-      const authToken = await this._getAuthToken();
-
-      if (!authToken) {
+      const e = await this._getAuthToken();
+      if (!e)
         throw new Error("Backoffice authentication is not ready yet.");
-      }
-
-      const response = await this._fetch(
-        `/umbraco/jobsjobsjobs/api/v1/background-jobs/run/${encodeURIComponent(alias)}`,
-        authToken,
+      const r = await this._fetch(
+        `/umbraco/jobsjobsjobs/api/v1/background-jobs/run/${encodeURIComponent(s)}`,
+        e,
         {
-          method: "POST",
-        },
+          method: "POST"
+        }
       );
-
-      if (!response.ok) {
-        throw new Error(await this._readProblem(response));
-      }
-
-      this._runStates = { ...this._runStates, [alias]: "success" };
-      await this._load();
-    } catch (error) {
-      this._runStates = { ...this._runStates, [alias]: "failed" };
-      this._errorMessage = error instanceof Error ? error.message : `Could not run ${alias}.`;
+      if (!r.ok)
+        throw new Error(await this._readProblem(r));
+      this._runStates = { ...this._runStates, [s]: "success" }, await this._load();
+    } catch (e) {
+      this._runStates = { ...this._runStates, [s]: "failed" }, this._errorMessage = e instanceof Error ? e.message : `Could not run ${s}.`;
     }
   }
-
-  private async _stopJob(alias: string) {
-    this._stopStates = { ...this._stopStates, [alias]: "waiting" };
-    this._errorMessage = "";
-
+  async _stopJob(s) {
+    this._stopStates = { ...this._stopStates, [s]: "waiting" }, this._errorMessage = "";
     try {
-      const authToken = await this._getAuthToken();
-
-      if (!authToken) {
+      const e = await this._getAuthToken();
+      if (!e)
         throw new Error("Backoffice authentication is not ready yet.");
-      }
-
-      const response = await this._fetch(
-        `/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(alias)}`,
-        authToken,
+      const r = await this._fetch(
+        `/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(s)}`,
+        e,
         {
-          method: "POST",
-        },
+          method: "POST"
+        }
       );
-
-      if (!response.ok) {
-        throw new Error(await this._readProblem(response));
-      }
-
-      await this._load();
-      this._stopStates = { ...this._stopStates, [alias]: undefined };
-    } catch (error) {
-      this._stopStates = { ...this._stopStates, [alias]: "failed" };
-      this._errorMessage = error instanceof Error ? error.message : `Could not stop ${alias}.`;
+      if (!r.ok)
+        throw new Error(await this._readProblem(r));
+      await this._load(), this._stopStates = { ...this._stopStates, [s]: void 0 };
+    } catch (e) {
+      this._stopStates = { ...this._stopStates, [s]: "failed" }, this._errorMessage = e instanceof Error ? e.message : `Could not stop ${s}.`;
     }
   }
-
-  private async _fetch(input: RequestInfo | URL, authToken: string, init?: RequestInit) {
-    const headers = new Headers(init?.headers);
-    headers.set("Content-Type", "application/json");
-    headers.set("Authorization", `Bearer ${authToken}`);
-
-    return fetch(input, {
-      ...init,
+  async _fetch(s, e, r) {
+    const a = new Headers(r?.headers);
+    return a.set("Content-Type", "application/json"), a.set("Authorization", `Bearer ${e}`), fetch(s, {
+      ...r,
       credentials: this._authCredentials,
-      headers,
+      headers: a
     });
   }
-
-  private async _readProblem(response: Response) {
+  async _readProblem(s) {
     try {
-      const problem = (await response.json()) as { detail?: string; title?: string; message?: string };
-      return problem.detail ?? problem.title ?? problem.message ?? `Request failed with status ${response.status}.`;
+      const e = await s.json();
+      return e.detail ?? e.title ?? e.message ?? `Request failed with status ${s.status}.`;
     } catch {
-      return `Request failed with status ${response.status}.`;
+      return `Request failed with status ${s.status}.`;
     }
   }
-
-  private _getViewerTimeZone() {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "your local time";
+  _formatDate(s) {
+    if (!s) return "-";
+    const e = new Date(s);
+    return Number.isNaN(e.getTime()) ? s : e.toLocaleString();
   }
-
-  private _formatDate(value?: string) {
-    if (!value) return "-";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : this._dateTimeFormatter.format(date);
+  _formatTimeSpan(s) {
+    return s.startsWith("00:") || s.startsWith("0."), s;
   }
-
-  private _formatTimeSpan(value: string) {
-    return value.startsWith("00:") || value.startsWith("0.") ? value : value;
-  }
-
-  private _renderSchedule(item: BackgroundJobDashboardItem) {
-    if (item.usesCronSchedule) {
-      return html`
-        <div>${item.scheduleDisplay ?? item.cronExpression ?? "-"}</div>
-        <div class="muted">CRON · ${item.timeZoneId ?? "UTC"}</div>
-      `;
-    }
-
-    return html`
-      <div>${this._formatTimeSpan(item.period)}</div>
+  _renderSchedule(s) {
+    return s.usesCronSchedule ? t`
+        <div>${s.scheduleDisplay ?? s.cronExpression ?? "-"}</div>
+        <div class="muted">CRON · ${s.timeZoneId ?? "UTC"}</div>
+      ` : t`
+      <div>${this._formatTimeSpan(s.period)}</div>
       <div class="muted">Interval</div>
     `;
   }
-
-  private _formatDuration(value?: string) {
-    if (!value) return "-";
-
-    const match = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(value);
-    if (!match) {
-      return value;
+  _formatDuration(s) {
+    if (!s) return "-";
+    const e = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(s);
+    if (!e)
+      return s;
+    const r = Number(e[1] ?? "0"), a = Number(e[2]), i = Number(e[3]), n = Number(e[4]), d = e[5] ?? "", p = d ? Math.round(+`0.${d}` * 1e3) : 0;
+    if (r > 0 || a > 0 || i > 0) {
+      const c = [];
+      return r > 0 && c.push(`${r}d`), a > 0 && c.push(`${a}h`), i > 0 && c.push(`${i}m`), n > 0 && c.push(`${n}s`), c.join(" ");
     }
-
-    const days = Number(match[1] ?? "0");
-    const hours = Number(match[2]);
-    const minutes = Number(match[3]);
-    const seconds = Number(match[4]);
-    const fractional = match[5] ?? "";
-    const milliseconds = fractional ? Math.round(Number(`0.${fractional}`) * 1000) : 0;
-
-    if (days > 0 || hours > 0 || minutes > 0) {
-      const parts = [];
-      if (days > 0) parts.push(`${days}d`);
-      if (hours > 0) parts.push(`${hours}h`);
-      if (minutes > 0) parts.push(`${minutes}m`);
-      if (seconds > 0) parts.push(`${seconds}s`);
-      return parts.join(" ");
-    }
-
-    if (seconds > 0) {
-      if (milliseconds === 0) {
-        return `${seconds}s`;
-      }
-
-      return `${seconds}.${milliseconds.toString().padStart(3, "0").replace(/0+$/, "")}s`;
-    }
-
-    return `${milliseconds}ms`;
+    return n > 0 ? p === 0 ? `${n}s` : `${n}.${p.toString().padStart(3, "0").replace(/0+$/, "")}s` : `${p}ms`;
   }
-
-  private _getStatusLabel(item: BackgroundJobDashboardItem) {
-    if (item.stopRequested) {
-      return "StopRequested";
-    }
-
-    return item.isRunning ? "Running" : item.lastStatus;
+  _getStatusLabel(s) {
+    return s.stopRequested ? "StopRequested" : s.isRunning ? "Running" : s.lastStatus;
   }
-
-  private _getStatusClassFromValue(status: string) {
-    return `status-badge status-${status.toLowerCase()}`;
+  _getStatusClassFromValue(s) {
+    return `status-badge status-${s.toLowerCase()}`;
   }
-
-  private _getStatusClass(item: BackgroundJobDashboardItem) {
-    return this._getStatusClassFromValue(this._getStatusLabel(item));
+  _getStatusClass(s) {
+    return this._getStatusClassFromValue(this._getStatusLabel(s));
   }
-
-  private _normalizeText(value?: string) {
-    const trimmed = value?.trim();
-    return trimmed ? trimmed : undefined;
+  _normalizeText(s) {
+    const e = s?.trim();
+    return e || void 0;
   }
-
-  private _isSameText(left?: string, right?: string) {
-    return this._normalizeText(left) === this._normalizeText(right);
+  _isSameText(s, e) {
+    return this._normalizeText(s) === this._normalizeText(e);
   }
-
-  private _hasCurrentStateDetails(item: BackgroundJobDashboardItem) {
-    if (item.stopRequested || item.isRunning) {
-      return true;
-    }
-
-    const currentError = this._normalizeText(item.lastError);
-    const currentMessage = this._normalizeText(item.lastMessage);
-    const storedError = this._normalizeText(item.latestRun?.error);
-    const storedMessage = this._normalizeText(item.latestRun?.message);
-
-    if (currentError && this._isSameText(currentError, storedError) === false) {
-      return true;
-    }
-
-    if (currentMessage && this._isSameText(currentMessage, storedMessage) === false) {
-      return true;
-    }
-
-    return false;
+  _hasCurrentStateDetails(s) {
+    if (s.stopRequested || s.isRunning)
+      return !0;
+    const e = this._normalizeText(s.lastError), r = this._normalizeText(s.lastMessage), a = this._normalizeText(s.latestRun?.error), i = this._normalizeText(s.latestRun?.message);
+    return !!(e && this._isSameText(e, a) === !1 || r && this._isSameText(r, i) === !1);
   }
-
-  private _renderCurrentStateDetails(item: BackgroundJobDashboardItem) {
-    const currentError = this._normalizeText(item.lastError);
-    const currentMessage = this._normalizeText(item.lastMessage);
-    const storedError = this._normalizeText(item.latestRun?.error);
-    const storedMessage = this._normalizeText(item.latestRun?.message);
-
-    if (item.stopRequested) {
-      return html`
+  _renderCurrentStateDetails(s) {
+    const e = this._normalizeText(s.lastError), r = this._normalizeText(s.lastMessage), a = this._normalizeText(s.latestRun?.error), i = this._normalizeText(s.latestRun?.message);
+    return s.stopRequested ? t`
         <div class="current-state-title-row">
           <strong>Current state</strong>
           <span class="current-state-pill current-state-pill-warning">Stop requested</span>
         </div>
         <div>Waiting for the running job to stop gracefully.</div>
-        ${item.lastStartedAt ? html`<div class="muted">Started ${this._formatDate(item.lastStartedAt)}</div>` : ""}
-        ${currentMessage ? html`<div><strong>Message:</strong> ${currentMessage}</div>` : ""}
-      `;
-    }
-
-    if (item.isRunning) {
-      return html`
+        ${s.lastStartedAt ? t`<div class="muted">Started ${this._formatDate(s.lastStartedAt)}</div>` : ""}
+        ${r ? t`<div><strong>Message:</strong> ${r}</div>` : ""}
+      ` : s.isRunning ? t`
         <div class="current-state-title-row">
           <strong>Current state</strong>
           <span class="current-state-pill current-state-pill-running">Running now</span>
         </div>
-        ${item.lastStartedAt ? html`<div>Started ${this._formatDate(item.lastStartedAt)}</div>` : html`<div>Job is currently executing.</div>`}
-        ${currentMessage ? html`<div><strong>Message:</strong> ${currentMessage}</div>` : ""}
-      `;
-    }
-
-    if (currentError && this._isSameText(currentError, storedError) === false) {
-      return html`
+        ${s.lastStartedAt ? t`<div>Started ${this._formatDate(s.lastStartedAt)}</div>` : t`<div>Job is currently executing.</div>`}
+        ${r ? t`<div><strong>Message:</strong> ${r}</div>` : ""}
+      ` : e && this._isSameText(e, a) === !1 ? t`
         <div class="current-state-title-row">
           <strong>Current state</strong>
           <span class="current-state-pill current-state-pill-error">Attention</span>
         </div>
-        <div><strong>Error:</strong> ${currentError}</div>
-        ${currentMessage && this._isSameText(currentMessage, storedMessage) === false
-          ? html`<div><strong>Message:</strong> ${currentMessage}</div>`
-          : ""}
-      `;
-    }
-
-    if (currentMessage && this._isSameText(currentMessage, storedMessage) === false) {
-      return html`
+        <div><strong>Error:</strong> ${e}</div>
+        ${r && this._isSameText(r, i) === !1 ? t`<div><strong>Message:</strong> ${r}</div>` : ""}
+      ` : r && this._isSameText(r, i) === !1 ? t`
         <div class="current-state-title-row">
           <strong>Current state</strong>
           <span class="current-state-pill">Live update</span>
         </div>
-        <div><strong>Message:</strong> ${currentMessage}</div>
-      `;
-    }
-
-    return "";
+        <div><strong>Message:</strong> ${r}</div>
+      ` : "";
   }
-
-  private _matchesFilter(item: BackgroundJobDashboardItem) {
+  _matchesFilter(s) {
     switch (this._statusFilter) {
       case "running":
-        return item.isRunning;
+        return s.isRunning;
       case "failed":
-        return item.lastStatus === "Failed";
+        return s.lastStatus === "Failed";
       case "succeeded":
-        return item.lastStatus === "Succeeded";
+        return s.lastStatus === "Succeeded";
       case "idle":
-        return item.lastStatus === "Idle" && item.isRunning === false;
+        return s.lastStatus === "Idle" && s.isRunning === !1;
       default:
-        return true;
+        return !0;
     }
   }
-
-  private _getJobCardClass(item: BackgroundJobDashboardItem) {
-    if (item.isRunning) {
-      return "job-card-running";
-    }
-
-    if (item.lastStatus === "Failed") {
-      return "job-card-failed";
-    }
-
-    if (item.lastStatus === "Succeeded") {
-      return "job-card-succeeded";
-    }
-
-    if (!item.lastStartedAt && !item.latestRun) {
-      return "job-card-never-run";
-    }
-
-    return "";
+  _getJobCardClass(s) {
+    return s.isRunning ? "job-card-running" : s.lastStatus === "Failed" ? "job-card-failed" : s.lastStatus === "Succeeded" ? "job-card-succeeded" : !s.lastStartedAt && !s.latestRun ? "job-card-never-run" : "";
   }
-
-  private _getVisibleItems() {
-    return this._items.filter((item) => this._matchesFilter(item));
+  _getVisibleItems() {
+    return this._items.filter((s) => this._matchesFilter(s));
   }
-
-  private _onFilterChange(event: Event) {
-    this._statusFilter = (event.target as HTMLSelectElement).value as BackgroundJobFilter;
+  _onFilterChange(s) {
+    this._statusFilter = s.target.value;
   }
-
-  private _renderLatestRun(item: BackgroundJobDashboardItem) {
-    const run = item.latestRun;
-
-    if (!run) {
-      return "";
-    }
-
-    return html`
+  _renderLatestRun(s) {
+    const e = s.latestRun;
+    return e ? t`
       <details class="persisted-run">
         <summary class="persisted-run-toggle">
           <span class="persisted-run-heading">
@@ -503,54 +237,42 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
               <span class="muted">Details</span>
             </span>
             <strong>Latest stored run</strong>
-            <span class=${this._getStatusClassFromValue(run.status)}>${run.status}</span>
+            <span class=${this._getStatusClassFromValue(e.status)}>${e.status}</span>
           </span>
           <span class="muted persisted-run-toggle-meta">
-            ${this._formatDate(run.startedAt)}
-            ${run.trigger}
-            ${this._formatDuration(run.duration)}
+            ${this._formatDate(e.startedAt)}
+            ${e.trigger}
+            ${this._formatDuration(e.duration)}
           </span>
         </summary>
         <div class="persisted-run-body">
-          ${run.completedAt ? html`<div class="muted">Completed ${this._formatDate(run.completedAt)}</div>` : ""}
-          ${run.error
-            ? html`<div><strong>Stored error:</strong> ${run.error}</div>`
-            : run.message
-              ? html`<div><strong>Stored message:</strong> ${run.message}</div>`
-              : ""}
-          ${run.logs.length > 0
-            ? html`
+          ${e.completedAt ? t`<div class="muted">Completed ${this._formatDate(e.completedAt)}</div>` : ""}
+          ${e.error ? t`<div><strong>Stored error:</strong> ${e.error}</div>` : e.message ? t`<div><strong>Stored message:</strong> ${e.message}</div>` : ""}
+          ${e.logs.length > 0 ? t`
                 <div class="persisted-run-logs">
                   <strong>Stored logs</strong>
                   <ul class="log-list">
-                    ${run.logs.map(
-                      (log) => html`
+                    ${e.logs.map(
+      (r) => t`
                         <li class="log-item">
                           <div class="log-meta">
-                            <span class="log-time">${this._formatDate(log.loggedAt)}</span>
-                            <span class=${this._getStatusClassFromValue(log.level)}>${log.level}</span>
+                            <span class="log-time">${this._formatDate(r.loggedAt)}</span>
+                            <span class=${this._getStatusClassFromValue(r.level)}>${r.level}</span>
                           </div>
-                          <span class="log-message">${log.message}</span>
+                          <span class="log-message">${r.message}</span>
                         </li>
-                      `,
-                    )}
+                      `
+    )}
                   </ul>
                 </div>
-              `
-            : html`<div class="muted">No stored logs for the latest run.</div>`}
+              ` : t`<div class="muted">No stored logs for the latest run.</div>`}
         </div>
       </details>
-    `;
+    ` : "";
   }
-
-  private _renderRecentRuns(item: BackgroundJobDashboardItem) {
-    const runs = item.recentRuns ?? [];
-
-    if (runs.length === 0) {
-      return "";
-    }
-
-    return html`
+  _renderRecentRuns(s) {
+    const e = s.recentRuns ?? [];
+    return e.length === 0 ? "" : t`
       <details class="persisted-run recent-runs-panel">
         <summary class="persisted-run-toggle">
           <span class="persisted-run-heading">
@@ -560,43 +282,30 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
             </span>
             <strong>Recent stored runs</strong>
           </span>
-          <span class="muted persisted-run-toggle-meta">${runs.length} shown</span>
+          <span class="muted persisted-run-toggle-meta">${e.length} shown</span>
         </summary>
         <div class="persisted-run-body">
           <ul class="recent-run-list">
-            ${runs.map(
-              (run) => html`
+            ${e.map(
+      (r) => t`
                 <li class="recent-run-item">
                   <div class="recent-run-main">
-                    <span class=${this._getStatusClassFromValue(run.status)}>${run.status}</span>
-                    <span>${this._formatDate(run.startedAt)}</span>
-                    <span class="muted">${run.trigger}</span>
-                    <span class="muted">${this._formatDuration(run.duration)}</span>
+                    <span class=${this._getStatusClassFromValue(r.status)}>${r.status}</span>
+                    <span>${this._formatDate(r.startedAt)}</span>
+                    <span class="muted">${r.trigger}</span>
+                    <span class="muted">${this._formatDuration(r.duration)}</span>
                   </div>
-                  ${run.error
-                    ? html`<div class="recent-run-message"><strong>Error:</strong> ${run.error}</div>`
-                    : run.message
-                      ? html`<div class="recent-run-message"><strong>Message:</strong> ${run.message}</div>`
-                      : ""}
+                  ${r.error ? t`<div class="recent-run-message"><strong>Error:</strong> ${r.error}</div>` : r.message ? t`<div class="recent-run-message"><strong>Message:</strong> ${r.message}</div>` : ""}
                 </li>
-              `,
-            )}
+              `
+    )}
           </ul>
         </div>
       </details>
     `;
   }
-
-  private _renderEmptyState() {
-    if (this._isLoading) {
-      return html`<div class="empty-state-panel">Loading jobs…</div>`;
-    }
-
-    if (this._items.length > 0) {
-      return html`<div class="empty-state-panel">No jobs match the selected filter.</div>`;
-    }
-
-    return html`
+  _renderEmptyState() {
+    return this._isLoading ? t`<div class="empty-state-panel">Loading jobs…</div>` : this._items.length > 0 ? t`<div class="empty-state-panel">No jobs match the selected filter.</div>` : t`
       <div class="empty-state-panel">
         <div class="empty-state">
           <strong>No custom background jobs have been registered yet.</strong>
@@ -612,45 +321,37 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       </div>
     `;
   }
-
-  private _renderRows() {
-    const items = this._getVisibleItems();
-
-    if (items.length === 0) {
-      return this._renderEmptyState();
-    }
-
-    return items.map(
-      (item) => html`
-        <section class="job-card ${this._getJobCardClass(item)}">
+  _renderRows() {
+    const s = this._getVisibleItems();
+    return s.length === 0 ? this._renderEmptyState() : s.map(
+      (e) => t`
+        <section class="job-card ${this._getJobCardClass(e)}">
           <div class="job-card-header">
             <div class="job-card-heading">
               <div class="job-card-title-row">
-                <strong class="job-name">${item.name}</strong>
-                <span class=${this._getStatusClass(item)}>${this._getStatusLabel(item)}</span>
+                <strong class="job-name">${e.name}</strong>
+                <span class=${this._getStatusClass(e)}>${this._getStatusLabel(e)}</span>
               </div>
-              <div class="muted job-meta" title=${item.type}>${item.type}</div>
+              <div class="muted job-meta" title=${e.type}>${e.type}</div>
             </div>
             <div class="action-buttons">
-              ${item.isRunning && item.canStop
-                ? html`
+              ${e.isRunning && e.canStop ? t`
                     <uui-button
                       look="primary"
                       color="danger"
                       label="Stop"
-                      ?disabled=${item.stopRequested}
-                      .state=${this._stopStates[item.alias]}
-                      @click=${() => this._stopJob(item.alias)}>
-                      ${item.stopRequested ? "Stopping…" : "Stop"}
+                      ?disabled=${e.stopRequested}
+                      .state=${this._stopStates[e.alias]}
+                      @click=${() => this._stopJob(e.alias)}>
+                      ${e.stopRequested ? "Stopping…" : "Stop"}
                     </uui-button>
-                  `
-                : html`
+                  ` : t`
                     <uui-button
                       look="primary"
                       label="Run now"
-                      ?disabled=${item.allowManualTrigger === false}
-                      .state=${this._runStates[item.alias]}
-                      @click=${() => this._runJob(item.alias)}>
+                      ?disabled=${e.allowManualTrigger === !1}
+                      .state=${this._runStates[e.alias]}
+                      @click=${() => this._runJob(e.alias)}>
                       Run now
                     </uui-button>
                   `}
@@ -658,55 +359,49 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
           </div>
 
           <div class="job-card-subheader">
-            <span class="job-type-chip">${item.usesCronSchedule ? "CRON" : "Interval"}</span>
-            ${item.canStop ? html`<span class="job-type-chip">Stoppable</span>` : ""}
-            ${item.allowManualTrigger ? "" : html`<span class="job-type-chip">Manual run disabled</span>`}
+            <span class="job-type-chip">${e.usesCronSchedule ? "CRON" : "Interval"}</span>
+            ${e.canStop ? t`<span class="job-type-chip">Stoppable</span>` : ""}
+            ${e.allowManualTrigger ? "" : t`<span class="job-type-chip">Manual run disabled</span>`}
           </div>
 
           <div class="job-card-grid">
             <div class="job-stat">
               <span class="job-stat-label">Last success</span>
-              <span class="job-stat-value">${this._formatDate(item.lastSucceededAt)}</span>
+              <span class="job-stat-value">${this._formatDate(e.lastSucceededAt)}</span>
             </div>
             <div class="job-stat">
               <span class="job-stat-label">Last failure</span>
-              <span class="job-stat-value">${this._formatDate(item.lastFailedAt)}</span>
+              <span class="job-stat-value">${this._formatDate(e.lastFailedAt)}</span>
             </div>
             <div class="job-stat">
               <span class="job-stat-label">Last start</span>
-              <span class="job-stat-value">${this._formatDate(item.lastStartedAt)}</span>
+              <span class="job-stat-value">${this._formatDate(e.lastStartedAt)}</span>
             </div>
             <div class="job-stat">
               <span class="job-stat-label">Last duration</span>
-              <span class="job-stat-value">${this._formatDuration(item.lastDuration)}</span>
+              <span class="job-stat-value">${this._formatDuration(e.lastDuration)}</span>
             </div>
             <div class="job-stat job-stat-schedule">
               <span class="job-stat-label">Schedule</span>
-              <div class="job-stat-value">${this._renderSchedule(item)}</div>
+              <div class="job-stat-value">${this._renderSchedule(e)}</div>
             </div>
           </div>
 
-          ${this._hasCurrentStateDetails(item)
-            ? html`<div class="current-state-panel">${this._renderCurrentStateDetails(item)}</div>`
-            : ""}
+          ${this._hasCurrentStateDetails(e) ? t`<div class="current-state-panel">${this._renderCurrentStateDetails(e)}</div>` : ""}
 
-          ${item.recentRuns?.length || item.latestRun
-            ? html`<div class="job-card-sections">${this._renderRecentRuns(item)}${this._renderLatestRun(item)}</div>`
-            : ""}
-        </section>`,
+          ${e.recentRuns?.length || e.latestRun ? t`<div class="job-card-sections">${this._renderRecentRuns(e)}${this._renderLatestRun(e)}</div>` : ""}
+        </section>`
     );
   }
-
-  override render() {
-    return html`
+  render() {
+    return t`
       <uui-box headline="Background Jobs">
         <uui-button slot="header-actions" look="secondary" label="Refresh" @click=${this._reload} .state=${this._reloadState}>
           Refresh
         </uui-button>
         <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
-        <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds when custom jobs are present.</p>
-        <p class="muted refresh-info">Run timestamps are shown in ${this._getViewerTimeZone()}. CRON schedules use the configured job timezone.</p>
-        ${this._errorMessage ? html`<p class="error">${this._errorMessage}</p>` : ""}
+        <p class="muted refresh-info">Auto-refreshes every ${o._autoRefreshIntervalMs / 1e3} seconds when custom jobs are present.</p>
+        ${this._errorMessage ? t`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
           <label class="filter-label" for="status-filter">Status filter</label>
           <select id="status-filter" class="filter-select" @change=${this._onFilterChange} .value=${this._statusFilter}>
@@ -723,10 +418,11 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       </uui-box>
     `;
   }
-
-  static override styles = [
-    UmbTextStyles,
-    css`
+};
+o._autoRefreshIntervalMs = 5e3;
+o.styles = [
+  m,
+  g`
       :host {
         display: block;
         padding: var(--uui-size-layout-1);
@@ -1181,14 +877,35 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         color: var(--uui-color-danger);
         font-weight: 700;
       }
-    `,
-  ];
-}
-
-export default JobsJobsJobsBackgroundJobsDashboardElement;
-
-declare global {
-  interface HTMLElementTagNameMap {
-    "jobs-jobs-jobs-background-jobs-dashboard": JobsJobsJobsBackgroundJobsDashboardElement;
-  }
-}
+    `
+];
+u([
+  l()
+], o.prototype, "_items", 2);
+u([
+  l()
+], o.prototype, "_isLoading", 2);
+u([
+  l()
+], o.prototype, "_reloadState", 2);
+u([
+  l()
+], o.prototype, "_runStates", 2);
+u([
+  l()
+], o.prototype, "_stopStates", 2);
+u([
+  l()
+], o.prototype, "_errorMessage", 2);
+u([
+  l()
+], o.prototype, "_statusFilter", 2);
+o = u([
+  h("jobs-jobs-jobs-background-jobs-dashboard")
+], o);
+const j = o;
+export {
+  o as JobsJobsJobsBackgroundJobsDashboardElement,
+  j as default
+};
+//# sourceMappingURL=background-jobs-dashboard.element-DtCLT27W.js.map

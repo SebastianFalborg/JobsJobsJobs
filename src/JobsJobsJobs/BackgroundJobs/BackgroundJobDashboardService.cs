@@ -81,7 +81,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
 
     public bool TryGet(string alias, out BackgroundJobDashboardItem item)
     {
-        if (_items.TryGetValue(alias, out BackgroundJobDashboardItem? existing))
+        if (_items.TryGetValue(alias, out var existing))
         {
             item = existing;
             return true;
@@ -145,7 +145,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
             return;
         }
 
-        DateTime startedAt = _runExecutionContextAccessor.Current?.StartedAt ?? DateTime.UtcNow;
+        var startedAt = _runExecutionContextAccessor.Current?.StartedAt ?? DateTime.UtcNow;
 
         Update(job, item =>
         {
@@ -267,7 +267,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
     {
         while (true)
         {
-            if (_activeExecutionCounts.TryGetValue(alias, out int existingCount))
+            if (_activeExecutionCounts.TryGetValue(alias, out var existingCount))
             {
                 if (onlyIfZero && existingCount > 0)
                 {
@@ -293,7 +293,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
     {
         while (true)
         {
-            if (_activeExecutionCounts.TryGetValue(alias, out int existingCount) is false)
+            if (_activeExecutionCounts.TryGetValue(alias, out var existingCount) is false)
             {
                 return 0;
             }
@@ -317,7 +317,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
 
     private static BackgroundJobDashboardItem CreateDefinition(IRecurringBackgroundJob job)
     {
-        IBackgroundJobDashboardMetadata? metadata = job as IBackgroundJobDashboardMetadata;
+        var metadata = job as IBackgroundJobDashboardMetadata;
 
         return new BackgroundJobDashboardItem
         {
@@ -362,11 +362,13 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
             LastStatus = item.LastStatus,
             LastError = item.LastError,
             LastMessage = item.LastMessage,
+            LatestRun = item.LatestRun,
+            RecentRuns = item.RecentRuns,
         };
 
     private static string? ResolveMessage(EventMessages messages, IDictionary<string, object?>? state)
     {
-        if (state is not null && state.TryGetValue(BackgroundJobDashboardStateKeys.Message, out object? stateMessage) && stateMessage is string message)
+        if (state is not null && state.TryGetValue(BackgroundJobDashboardStateKeys.Message, out var stateMessage) && stateMessage is string message)
         {
             return message;
         }
@@ -376,7 +378,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
 
     private static string? ResolveError(EventMessages messages, IDictionary<string, object?>? state)
     {
-        if (state is not null && state.TryGetValue(BackgroundJobDashboardStateKeys.ErrorMessage, out object? stateError) && stateError is string error)
+        if (state is not null && state.TryGetValue(BackgroundJobDashboardStateKeys.ErrorMessage, out var stateError) && stateError is string error)
         {
             return error;
         }
@@ -398,7 +400,7 @@ internal sealed class BackgroundJobDashboardService : IBackgroundJobDashboardSer
 
     public IReadOnlyCollection<BackgroundJobDashboardItem> GetJobs()
     {
-        BackgroundJobDashboardItem[] items = _stateStore.GetAll().Select(item => new BackgroundJobDashboardItem
+        var items = _stateStore.GetAll().Select(item => new BackgroundJobDashboardItem
         {
             Alias = item.Alias,
             Name = item.Name,
@@ -423,15 +425,22 @@ internal sealed class BackgroundJobDashboardService : IBackgroundJobDashboardSer
             LastError = item.LastError,
             LastMessage = item.LastMessage,
             LatestRun = item.LatestRun,
+            RecentRuns = item.RecentRuns,
         }).ToArray();
-        IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> latestRuns = _runHistoryService.GetLatestRuns(items.Select(x => x.Alias));
+        var latestRuns = _runHistoryService.GetLatestRuns(items.Select(x => x.Alias));
+        var recentRuns = _runHistoryService.GetRecentRuns(items.Select(x => x.Alias));
 
-        foreach (BackgroundJobDashboardItem item in items)
+        foreach (var item in items)
         {
-            if (latestRuns.TryGetValue(item.Alias, out BackgroundJobRunHistoryItem? latestRun))
+            if (latestRuns.TryGetValue(item.Alias, out var latestRun))
             {
                 item.LatestRun = latestRun;
                 HydrateSummaryFromLatestRun(item, latestRun);
+            }
+
+            if (recentRuns.TryGetValue(item.Alias, out var recentJobRuns))
+            {
+                item.RecentRuns = recentJobRuns;
             }
         }
 
@@ -530,7 +539,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
 
     public async Task<BackgroundJobTriggerResult> TriggerAsync(string alias)
     {
-        if (_jobs.TryGetValue(alias, out IRecurringBackgroundJob? job) is false)
+        if (_jobs.TryGetValue(alias, out var job) is false)
         {
             return new BackgroundJobTriggerResult
             {

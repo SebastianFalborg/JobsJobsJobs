@@ -6,11 +6,10 @@ using JobsJobsJobs.BackgroundJobs;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core.Sync;
-using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.TestSite;
 
-internal sealed class DashboardFileWriteStopTestJob : RecurringBackgroundJobBase, IStoppableRecurringBackgroundJob
+internal sealed class DashboardFileWriteStopTestJob : CronBackgroundJobBase, IStoppableCronBackgroundJob
 {
     private readonly IBackgroundJobExecutionCancellation _executionCancellation;
     private readonly IHostEnvironment _hostEnvironment;
@@ -31,9 +30,11 @@ internal sealed class DashboardFileWriteStopTestJob : RecurringBackgroundJobBase
         _runLogWriter = runLogWriter;
     }
 
-    public override TimeSpan Period => TimeSpan.FromDays(1);
+    public override string CronExpression => "*/15 * * * *";
 
-    public override TimeSpan Delay => TimeSpan.FromDays(1);
+    public override TimeZoneInfo TimeZone => TimeZoneInfo.Utc;
+
+    public override ServerRole[] ServerRoles => Enum.GetValues<ServerRole>();
 
     public override async Task RunJobAsync()
     {

@@ -90,6 +90,8 @@ public class BackgroundJobDashboardItem
     public string? LastMessage { get; set; }
 
     public BackgroundJobRunHistoryItem? LatestRun { get; set; }
+
+    public IReadOnlyCollection<BackgroundJobRunHistoryItem> RecentRuns { get; set; } = Array.Empty<BackgroundJobRunHistoryItem>();
 }
 
 public class BackgroundJobTriggerResult
