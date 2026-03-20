@@ -251,10 +251,22 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private void LogRunStarted(string alias, BackgroundJobRunTrigger trigger)
-        => _logger.LogInformation("Background job {JobAlias} started with trigger {Trigger}.", alias, trigger);
+    {
+        if (_options.MirrorBackgroundJobLogsToUmbracoLog is false)
+        {
+            return;
+        }
+
+        _logger.LogInformation("Background job {JobAlias} started with trigger {Trigger}.", alias, trigger);
+    }
 
     private void LogRunCompleted(string alias, BackgroundJobStatus status, string? message, string? error)
     {
+        if (_options.MirrorBackgroundJobLogsToUmbracoLog is false)
+        {
+            return;
+        }
+
         var detail = error ?? message;
 
         switch (status)
@@ -276,6 +288,11 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
     private void WriteApplicationLog(string alias, BackgroundJobRunLogLevel level, string message)
     {
+        if (_options.MirrorBackgroundJobLogsToUmbracoLog is false)
+        {
+            return;
+        }
+
         switch (level)
         {
             case BackgroundJobRunLogLevel.Warning:

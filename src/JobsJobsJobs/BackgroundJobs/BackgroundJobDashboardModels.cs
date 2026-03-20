@@ -7,6 +7,8 @@ namespace JobsJobsJobs.BackgroundJobs;
 public class BackgroundJobDashboardOptions
 {
     public bool IncludeUmbracoJobs { get; set; }
+
+    public bool MirrorBackgroundJobLogsToUmbracoLog { get; set; }
 }
 
 public static class BackgroundJobDashboardStateKeys

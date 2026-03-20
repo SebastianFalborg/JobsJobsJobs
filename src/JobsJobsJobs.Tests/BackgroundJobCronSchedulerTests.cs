@@ -115,11 +115,12 @@ public class BackgroundJobCronSchedulerTests
             int maxLogsPerRun = 0
         ) =>
             aliases
-            .Where(alias => _runs.ContainsKey(alias))
-            .ToDictionary(
-                alias => alias,
-                alias => (IReadOnlyCollection<BackgroundJobRunHistoryItem>)new[] { _runs[alias] },
-                StringComparer.OrdinalIgnoreCase);
+                .Where(alias => _runs.ContainsKey(alias))
+                .ToDictionary(
+                    alias => alias,
+                    alias => (IReadOnlyCollection<BackgroundJobRunHistoryItem>)new[] { _runs[alias] },
+                    StringComparer.OrdinalIgnoreCase
+                );
     }
 
     private sealed class TestCronJob : CronBackgroundJobBase
