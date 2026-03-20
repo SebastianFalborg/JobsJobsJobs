@@ -9,7 +9,10 @@ var f = Object.defineProperty, _ = Object.getOwnPropertyDescriptor, u = (s, e, r
 };
 let o = class extends v {
   constructor() {
-    super(), this._authInitialized = !1, this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(b, (s) => {
+    super(), this._dateTimeFormatter = new Intl.DateTimeFormat(void 0, {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }), this._authInitialized = !1, this._authCredentials = "include", this._items = [], this._isLoading = !1, this._reloadState = void 0, this._runStates = {}, this._stopStates = {}, this._errorMessage = "", this._statusFilter = "all", this.consumeContext(b, (s) => {
       const e = s?.getOpenApiConfiguration();
       this._authInitialized = s !== void 0, this._authToken = e?.token, this._authCredentials = e?.credentials ?? "include", this._load();
     });
@@ -120,10 +123,13 @@ let o = class extends v {
       return `Request failed with status ${s.status}.`;
     }
   }
+  _getViewerTimeZone() {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "your local time";
+  }
   _formatDate(s) {
     if (!s) return "-";
     const e = new Date(s);
-    return Number.isNaN(e.getTime()) ? s : e.toLocaleString();
+    return Number.isNaN(e.getTime()) ? s : this._dateTimeFormatter.format(e);
   }
   _formatTimeSpan(s) {
     return s.startsWith("00:") || s.startsWith("0."), s;
@@ -401,6 +407,7 @@ let o = class extends v {
         </uui-button>
         <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
         <p class="muted refresh-info">Auto-refreshes every ${o._autoRefreshIntervalMs / 1e3} seconds when custom jobs are present.</p>
+        <p class="muted refresh-info">Run timestamps are shown in ${this._getViewerTimeZone()}. CRON schedules use the configured job timezone.</p>
         ${this._errorMessage ? t`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
           <label class="filter-label" for="status-filter">Status filter</label>
@@ -908,4 +915,4 @@ export {
   o as JobsJobsJobsBackgroundJobsDashboardElement,
   j as default
 };
-//# sourceMappingURL=background-jobs-dashboard.element-DtCLT27W.js.map
+//# sourceMappingURL=background-jobs-dashboard.element-Bp7fYVJq.js.map

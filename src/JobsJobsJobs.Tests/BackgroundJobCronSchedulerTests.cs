@@ -64,7 +64,7 @@ public class BackgroundJobCronSchedulerTests
             StartedAt = new DateTime(sundayUtc.Year, sundayUtc.Month, sundayUtc.Day, 22, 29, 5, DateTimeKind.Unspecified),
         };
         var scheduler = CreateScheduler(sundayUtc.AddHours(-1), latestRun);
-        DateTime startedAtUtc = new DateTime(sundayUtc.Year, sundayUtc.Month, sundayUtc.Day, 22, 30, 5, DateTimeKind.Unspecified);
+        var startedAtUtc = new DateTime(sundayUtc.Year, sundayUtc.Month, sundayUtc.Day, 22, 30, 5, DateTimeKind.Unspecified);
 
         var result = scheduler.ShouldExecute("Sunday2200UtcCronTestJob", "* 22-23 * * SUN", TimeZoneInfo.Utc, startedAtUtc);
 
@@ -108,6 +108,17 @@ public class BackgroundJobCronSchedulerTests
             BackgroundJobRunTrigger? trigger = null,
             int maxLogsPerRun = 20
         ) => aliases.Where(alias => _runs.ContainsKey(alias)).ToDictionary(alias => alias, alias => _runs[alias], StringComparer.OrdinalIgnoreCase);
+
+        public IReadOnlyDictionary<string, IReadOnlyCollection<BackgroundJobRunHistoryItem>> GetRecentRuns(
+            IEnumerable<string> aliases,
+            int maxRuns = 5,
+            int maxLogsPerRun = 0
+        ) => aliases
+            .Where(alias => _runs.ContainsKey(alias))
+            .ToDictionary(
+                alias => alias,
+                alias => (IReadOnlyCollection<BackgroundJobRunHistoryItem>)new[] { _runs[alias] },
+                StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class TestCronJob : CronBackgroundJobBase
