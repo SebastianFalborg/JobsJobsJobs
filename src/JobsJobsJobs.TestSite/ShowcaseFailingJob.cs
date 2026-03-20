@@ -16,7 +16,7 @@ internal sealed class ShowcaseFailingJob : RecurringBackgroundJobBase
 
     public override TimeSpan Period => TimeSpan.FromMinutes(20);
 
-    public override TimeSpan Delay => TimeSpan.FromMinutes(1);
+    public override TimeSpan Delay => TimeSpan.FromMinutes(5);
 
     public override async Task RunJobAsync()
     {

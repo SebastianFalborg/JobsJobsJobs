@@ -22,7 +22,7 @@ internal sealed class ShowcaseStoppableIntervalJob : RecurringBackgroundJobBase,
 
     public override TimeSpan Period => TimeSpan.FromMinutes(15);
 
-    public override TimeSpan Delay => TimeSpan.FromMinutes(1);
+    public override TimeSpan Delay => TimeSpan.FromMinutes(5);
 
     public override Task RunJobAsync()
     {
