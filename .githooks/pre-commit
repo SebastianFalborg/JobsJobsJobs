@@ -1,0 +1,22 @@
+#!/bin/sh
+
+staged_files=$(mktemp)
+git diff --cached --name-only --diff-filter=ACMR -z -- '*.cs' '*.csx' '*.cake' > "$staged_files"
+
+if [ ! -s "$staged_files" ]; then
+  rm -f "$staged_files"
+  exit 0
+fi
+
+dotnet tool restore || {
+  rm -f "$staged_files"
+  exit 1
+}
+
+xargs -0 dotnet csharpier format < "$staged_files" || {
+  rm -f "$staged_files"
+  exit 1
+}
+
+xargs -0 git add < "$staged_files"
+rm -f "$staged_files"

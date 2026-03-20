@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "tool:restore": "dotnet tool restore",
+    "hooks:install": "git config core.hooksPath .githooks",
     "format": "dotnet csharpier format .",
     "format:check": "dotnet csharpier check .",
     "restore": "dotnet restore ./src/JobsJobsJobs.sln",
