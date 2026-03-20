@@ -113,7 +113,8 @@ public class BackgroundJobCronSchedulerTests
             IEnumerable<string> aliases,
             int maxRuns = 5,
             int maxLogsPerRun = 0
-        ) => aliases
+        ) =>
+            aliases
             .Where(alias => _runs.ContainsKey(alias))
             .ToDictionary(
                 alias => alias,
