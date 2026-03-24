@@ -37,6 +37,7 @@ namespace JobsJobsJobs.Composers
             builder.AddNotificationAsyncHandler<RecurringBackgroundJobFailedNotification, BackgroundJobDashboardNotificationHandler>();
             builder.AddNotificationAsyncHandler<RecurringBackgroundJobIgnoredNotification, BackgroundJobDashboardNotificationHandler>();
             builder.AddNotificationAsyncHandler<Umbraco.Cms.Core.Notifications.UmbracoApplicationStartingNotification, BackgroundJobRunMigrationHandler>();
+            builder.AddNotificationAsyncHandler<Umbraco.Cms.Core.Notifications.UmbracoApplicationStartedNotification, BackgroundJobRunMigrationHandler>();
 
             builder.Services.AddSingleton<IOperationIdHandler, CustomOperationHandler>();
 
