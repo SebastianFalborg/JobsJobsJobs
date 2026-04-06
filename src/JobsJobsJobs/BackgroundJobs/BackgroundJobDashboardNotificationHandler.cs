@@ -40,11 +40,11 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
         {
             _cronSuppressionCoordinator.Suppress(context.JobAlias);
             context.ShouldExecute = false;
-            _runExecutionContextAccessor.Set(context);
+            _runExecutionContextAccessor.Set(notification.Job, context);
             return Task.CompletedTask;
         }
 
-        _runExecutionContextAccessor.Set(context);
+        _runExecutionContextAccessor.Set(notification.Job, context);
         _stopCoordinator.Register(notification.Job, context);
         _stateStore.BeginExecution(notification.Job);
         var runPersisted = false;
@@ -73,7 +73,7 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
             _stateStore.AbortExecution(notification.Job);
             _stopCoordinator.Complete(context.RunId);
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
             throw;
         }
 
@@ -82,16 +82,16 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
     public Task HandleAsync(RecurringBackgroundJobExecutedNotification notification, CancellationToken cancellationToken)
     {
-        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Get(notification.Job);
         if (_cronSuppressionCoordinator.TryConsumeNotificationSkip(BackgroundJobDashboardNaming.GetAlias(notification.Job)))
         {
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
             return Task.CompletedTask;
         }
 
         if (context is not null && context.ShouldExecute is false)
         {
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
             return Task.CompletedTask;
         }
 
@@ -110,7 +110,7 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
                 _stopCoordinator.Complete(context.RunId);
             }
 
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
         }
 
         return Task.CompletedTask;
@@ -118,16 +118,16 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
     public Task HandleAsync(RecurringBackgroundJobFailedNotification notification, CancellationToken cancellationToken)
     {
-        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Get(notification.Job);
         if (_cronSuppressionCoordinator.TryConsumeNotificationSkip(BackgroundJobDashboardNaming.GetAlias(notification.Job)))
         {
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
             return Task.CompletedTask;
         }
 
         if (context is not null && context.ShouldExecute is false)
         {
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
             return Task.CompletedTask;
         }
 
@@ -151,7 +151,7 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
                 _stopCoordinator.Complete(context.RunId);
             }
 
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
         }
 
         return Task.CompletedTask;
@@ -159,16 +159,16 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
     public Task HandleAsync(RecurringBackgroundJobIgnoredNotification notification, CancellationToken cancellationToken)
     {
-        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Current;
+        BackgroundJobRunExecutionContext? context = _runExecutionContextAccessor.Get(notification.Job);
         if (_cronSuppressionCoordinator.TryConsumeNotificationSkip(BackgroundJobDashboardNaming.GetAlias(notification.Job)))
         {
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
             return Task.CompletedTask;
         }
 
         if (context is not null && context.ShouldExecute is false)
         {
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
             return Task.CompletedTask;
         }
 
@@ -184,7 +184,7 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
                 _stopCoordinator.Complete(context.RunId);
             }
 
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(notification.Job);
         }
 
         return Task.CompletedTask;

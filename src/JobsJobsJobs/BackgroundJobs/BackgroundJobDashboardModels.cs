@@ -9,6 +9,8 @@ public class BackgroundJobDashboardOptions
     public bool IncludeUmbracoJobs { get; set; }
 
     public bool MirrorBackgroundJobLogsToUmbracoLog { get; set; }
+
+    public bool DisablePersistence { get; set; }
 }
 
 public static class BackgroundJobDashboardStateKeys

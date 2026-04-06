@@ -145,7 +145,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
             return;
         }
 
-        var startedAt = _runExecutionContextAccessor.Current?.StartedAt ?? DateTime.UtcNow;
+        var startedAt = _runExecutionContextAccessor.Get(job)?.StartedAt ?? DateTime.UtcNow;
 
         Update(job, item =>
         {
@@ -181,7 +181,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         }
 
         var completedAt = DateTime.UtcNow;
-        var startedAt = _runExecutionContextAccessor.Current?.StartedAt;
+        var startedAt = _runExecutionContextAccessor.Get(job)?.StartedAt;
         var remainingExecutions = DecrementExecutionCount(BackgroundJobDashboardNaming.GetAlias(job));
 
         Update(job, item =>
@@ -215,7 +215,7 @@ internal sealed class BackgroundJobDashboardStateStore : IBackgroundJobDashboard
         }
 
         var completedAt = DateTime.UtcNow;
-        var startedAt = _runExecutionContextAccessor.Current?.StartedAt;
+        var startedAt = _runExecutionContextAccessor.Get(job)?.StartedAt;
         var remainingExecutions = DecrementExecutionCount(BackgroundJobDashboardNaming.GetAlias(job));
 
         Update(job, item =>
@@ -564,13 +564,13 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
         }
 
         BackgroundJobRunExecutionContext context = _runExecutionContextAccessor.Create(job, BackgroundJobRunTrigger.Manual);
-        _runExecutionContextAccessor.Set(context);
+        _runExecutionContextAccessor.Set(job, context);
         _stopCoordinator.Register(job, context);
 
         if (_stateStore.TryBeginExecution(job) is false)
         {
             _stopCoordinator.Complete(context.RunId);
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(job);
             return new BackgroundJobTriggerResult
             {
                 Status = BackgroundJobTriggerOperationStatus.AlreadyRunning,
@@ -588,7 +588,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
             runPersisted = true;
             _stateStore.MarkRunning(job);
             runningStateMarked = true;
-            _runRecorder.WriteLog(alias, BackgroundJobRunLogLevel.Information, "Manually triggered");
+            _runRecorder.WriteLog(job, BackgroundJobRunLogLevel.Information, "Manually triggered");
             await job.RunJobAsync();
             var completionStatus = _stopCoordinator.IsStopRequested(context.RunId)
                 ? BackgroundJobStatus.Stopped
@@ -689,7 +689,7 @@ internal sealed class BackgroundJobManualTriggerDispatcher : IBackgroundJobManua
         finally
         {
             _stopCoordinator.Complete(context.RunId);
-            _runExecutionContextAccessor.Clear();
+            _runExecutionContextAccessor.Clear(job);
         }
     }
 
@@ -760,7 +760,7 @@ internal sealed class BackgroundJobStopDispatcher : IBackgroundJobStopDispatcher
         {
             case BackgroundJobStopRequestState.Success:
                 _stateStore.MarkStopRequested(job);
-                _runRecorder.WriteLog(alias, BackgroundJobRunLogLevel.Warning, "Stop requested.");
+                _runRecorder.WriteLog(job, BackgroundJobRunLogLevel.Warning, "Stop requested.");
                 return new BackgroundJobStopResult
                 {
                     Status = BackgroundJobStopOperationStatus.Success,

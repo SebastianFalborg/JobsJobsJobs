@@ -26,16 +26,16 @@ internal sealed class ShowcaseCronJob : CronBackgroundJobBase
         var runNumber = Interlocked.Increment(ref _runCount);
 
         _logger.LogInformation("ShowcaseCronJob run {RunNumber} started", runNumber);
-        _runLogWriter.Information("CRON showcase run started.");
-        _runLogWriter.Information($"This job uses the CRON schedule '{CronExpression}' in timezone '{TimeZone.Id}'.");
+        _runLogWriter.Information(this, "CRON showcase run started.");
+        _runLogWriter.Information(this, $"This job uses the CRON schedule '{CronExpression}' in timezone '{TimeZone.Id}'.");
 
         for (var step = 1; step <= 2; step++)
         {
             await Task.Delay(TimeSpan.FromSeconds(2));
-            _runLogWriter.Information($"Completed CRON showcase step {step} of 2.");
+            _runLogWriter.Information(this, $"Completed CRON showcase step {step} of 2.");
         }
 
-        _runLogWriter.Information("CRON showcase run completed successfully.");
+        _runLogWriter.Information(this, "CRON showcase run completed successfully.");
         _logger.LogInformation("ShowcaseCronJob run {RunNumber} completed", runNumber);
     }
 }

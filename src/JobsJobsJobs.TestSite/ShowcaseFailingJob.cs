@@ -23,19 +23,20 @@ internal sealed class ShowcaseFailingJob : RecurringBackgroundJobBase
         var runNumber = Interlocked.Increment(ref _runCount);
 
         _logger.LogInformation("ShowcaseFailingJob run {RunNumber} started", runNumber);
-        _runLogWriter.Warning("This showcase job is designed to fail intentionally so the dashboard can demonstrate failed runs.");
+        _runLogWriter.Warning(this, "This showcase job is designed to fail intentionally so the dashboard can demonstrate failed runs.");
         _runLogWriter.Information(
+            this,
             $"The job will fail at the end of this run. Current schedule is every {Period:c} with an initial delay of {Delay:c}."
         );
 
         for (var step = 1; step <= 2; step++)
         {
             await Task.Delay(TimeSpan.FromSeconds(2));
-            _runLogWriter.Information($"Completed failing showcase step {step} of 2.");
+            _runLogWriter.Information(this, $"Completed failing showcase step {step} of 2.");
         }
 
         const string failureMessage = "Intentional showcase failure. This job exists to demonstrate the failed-run experience in the dashboard.";
-        _runLogWriter.Error(failureMessage);
+        _runLogWriter.Error(this, failureMessage);
         _logger.LogWarning("ShowcaseFailingJob run {RunNumber} is failing intentionally", runNumber);
 
         throw new InvalidOperationException(failureMessage);

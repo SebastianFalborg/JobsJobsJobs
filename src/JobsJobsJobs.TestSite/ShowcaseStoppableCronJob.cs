@@ -37,8 +37,9 @@ internal sealed class ShowcaseStoppableCronJob : CronBackgroundJobBase, IStoppab
         var runNumber = Interlocked.Increment(ref _runCount);
 
         _logger.LogInformation("ShowcaseStoppableCronJob run {RunNumber} started", runNumber);
-        _runLogWriter.Information("Stoppable CRON showcase run started.");
+        _runLogWriter.Information(this, "Stoppable CRON showcase run started.");
         _runLogWriter.Information(
+            this,
             $"This job uses the CRON schedule '{CronExpression}' in timezone '{TimeZone.Id}' and supports cooperative stop requests."
         );
 
@@ -46,17 +47,17 @@ internal sealed class ShowcaseStoppableCronJob : CronBackgroundJobBase, IStoppab
         {
             for (var phase = 1; phase <= 5; phase++)
             {
-                _executionCancellation.ThrowIfCancellationRequested();
-                _runLogWriter.Information($"Processing stoppable CRON phase {phase} of 5.");
-                await Task.Delay(TimeSpan.FromSeconds(3), _executionCancellation.CancellationToken);
+                _executionCancellation.ThrowIfCancellationRequested(this);
+                _runLogWriter.Information(this, $"Processing stoppable CRON phase {phase} of 5.");
+                await Task.Delay(TimeSpan.FromSeconds(3), _executionCancellation.GetCancellationToken(this));
             }
 
-            _runLogWriter.Information("Stoppable CRON showcase run completed successfully.");
+            _runLogWriter.Information(this, "Stoppable CRON showcase run completed successfully.");
             _logger.LogInformation("ShowcaseStoppableCronJob run {RunNumber} completed", runNumber);
         }
-        catch (OperationCanceledException) when (_executionCancellation.IsStopRequested)
+        catch (OperationCanceledException) when (_executionCancellation.IsStopRequested(this))
         {
-            _runLogWriter.Warning("Stop request observed. Stoppable CRON showcase is shutting down cleanly.");
+            _runLogWriter.Warning(this, "Stop request observed. Stoppable CRON showcase is shutting down cleanly.");
             _logger.LogWarning("ShowcaseStoppableCronJob run {RunNumber} stopped", runNumber);
             throw;
         }

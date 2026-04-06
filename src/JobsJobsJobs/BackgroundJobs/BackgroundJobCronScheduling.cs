@@ -278,7 +278,7 @@ internal class CronRecurringBackgroundJobAdapter<TJob> : IRecurringBackgroundJob
             return;
         }
 
-        if (_runExecutionContextAccessor.Current?.ShouldExecute is false)
+        if (_runExecutionContextAccessor.Get(this)?.ShouldExecute is false)
         {
             return;
         }

@@ -10,6 +10,7 @@ namespace JobsJobsJobs.BackgroundJobs;
 internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, IBackgroundJobRunRecorder
 {
     private static readonly TimeSpan[] _writeRetryDelays = { TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500) };
+    private static readonly SemaphoreSlim _writeSemaphore = new(1, 1);
     private readonly ILogger<BackgroundJobRunStore> _logger;
     private readonly BackgroundJobDashboardOptions _options;
     private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
@@ -29,40 +30,34 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
     public void MarkStarted(IRecurringBackgroundJob job, BackgroundJobRunTrigger trigger)
     {
-        if (ShouldInclude(job) is false)
+        if (_options.DisablePersistence || ShouldInclude(job) is false)
         {
             return;
         }
 
-        var context = _runExecutionContextAccessor.Current ?? _runExecutionContextAccessor.Create(job, trigger);
-        var alias = BackgroundJobDashboardNaming.GetAlias(job);
-        LogRunStarted(alias, trigger);
-        var run = new BackgroundJobRunDto
+        var context = _runExecutionContextAccessor.Get(job);
+        if (context is null)
         {
-            Id = context.RunId,
-            JobAlias = alias,
-            JobName = BackgroundJobDashboardNaming.GetDisplayName(job),
-            Trigger = context.Trigger.ToString(),
-            Status = BackgroundJobStatus.Running.ToString(),
-            StartedAt = context.StartedAt,
-            CompletedAt = null,
-            DurationMs = 0,
-            Message = string.Empty,
-            Error = string.Empty,
-        };
+            return;
+        }
 
-        TryExecuteWrite(alias, "persist background job run start", () =>
-        {
-            using var scope = _scopeProvider.CreateScope(autoComplete: true);
-            scope.Database.Insert(run);
-        });
+        var alias = BackgroundJobDashboardNaming.GetAlias(job);
+
+        LogRunStarted(alias, trigger);
+
+        context.PendingRun = new PendingRunMetadata(
+            context.RunId,
+            alias,
+            BackgroundJobDashboardNaming.GetDisplayName(job),
+            context.Trigger.ToString(),
+            context.StartedAt);
     }
 
     public void MarkCompleted(IRecurringBackgroundJob job, BackgroundJobStatus status, EventMessages messages, IDictionary<string, object?>? state = null)
     {
         var alias = BackgroundJobDashboardNaming.GetAlias(job);
-        var context = _runExecutionContextAccessor.Current;
-        if (ShouldInclude(alias) is false)
+        var context = _runExecutionContextAccessor.Get(job);
+        if (_options.DisablePersistence || ShouldInclude(alias) is false)
         {
             return;
         }
@@ -72,32 +67,72 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         var error = status == BackgroundJobStatus.Failed ? ResolveError(messages, state) : null;
         LogRunCompleted(alias, status, message, error);
 
-        TryExecuteWrite(alias, "persist background job run completion", () =>
+        var pendingRun = context?.PendingRun;
+        var pendingLogs = context is not null ? DrainPendingLogs(context) : Array.Empty<PendingLogEntry>();
+
+        TryExecuteWrite(alias, "persist background job run", () =>
         {
-            using var scope = _scopeProvider.CreateScope(autoComplete: true);
-            var run = context is not null
-                ? scope.Database.SingleOrDefaultById<BackgroundJobRunDto>(context.RunId)
-                : GetLatestRunningRun(scope.Database, alias);
-            if (run is null)
+            _writeSemaphore.Wait();
+            try
             {
-                return;
+                using var scope = _scopeProvider.CreateScope(autoComplete: true);
+
+                BackgroundJobRunDto run;
+                if (pendingRun is not null)
+                {
+                    run = new BackgroundJobRunDto
+                    {
+                        Id = pendingRun.Id,
+                        JobAlias = pendingRun.JobAlias,
+                        JobName = pendingRun.JobName,
+                        Trigger = pendingRun.Trigger,
+                        Status = status.ToString(),
+                        StartedAt = pendingRun.StartedAt,
+                        CompletedAt = completedAt,
+                        DurationMs = (long)Math.Max(0, (completedAt - pendingRun.StartedAt).TotalMilliseconds),
+                        Message = message ?? string.Empty,
+                        Error = error ?? string.Empty,
+                    };
+                    scope.Database.Insert(run);
+                }
+                else
+                {
+                    var runId = _runExecutionContextAccessor.Get(job)?.RunId;
+                    var existing = runId.HasValue
+                        ? scope.Database.SingleOrDefaultById<BackgroundJobRunDto>(runId.Value)
+                        : GetLatestRunningRun(scope.Database, alias);
+                    if (existing is null)
+                    {
+                        return;
+                    }
+
+                    existing.Status = status.ToString();
+                    existing.CompletedAt = completedAt;
+                    existing.DurationMs = (long)Math.Max(0, (completedAt - existing.StartedAt).TotalMilliseconds);
+                    existing.Message = message ?? string.Empty;
+                    existing.Error = error ?? string.Empty;
+                    scope.Database.Update(existing);
+                    run = existing;
+                }
+
+                foreach (var entry in pendingLogs)
+                {
+                    InsertLog(scope.Database, run.Id, entry.Level, entry.Message, entry.LoggedAt);
+                }
+
+                if (string.IsNullOrWhiteSpace(message) is false)
+                {
+                    InsertLog(scope.Database, run.Id, BackgroundJobRunLogLevel.Information, message!);
+                }
+
+                if (string.IsNullOrWhiteSpace(error) is false)
+                {
+                    InsertLog(scope.Database, run.Id, BackgroundJobRunLogLevel.Error, error!);
+                }
             }
-
-            run.Status = status.ToString();
-            run.CompletedAt = completedAt;
-            run.DurationMs = (long)Math.Max(0, (completedAt - run.StartedAt).TotalMilliseconds);
-            run.Message = message ?? string.Empty;
-            run.Error = error ?? string.Empty;
-            scope.Database.Update(run);
-
-            if (string.IsNullOrWhiteSpace(message) is false)
+            finally
             {
-                InsertLog(scope.Database, run.Id, BackgroundJobRunLogLevel.Information, message!);
-            }
-
-            if (string.IsNullOrWhiteSpace(error) is false)
-            {
-                InsertLog(scope.Database, run.Id, BackgroundJobRunLogLevel.Error, error!);
+                _writeSemaphore.Release();
             }
         });
     }
@@ -105,27 +140,19 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
     public void MarkFailed(IRecurringBackgroundJob job, EventMessages messages, IDictionary<string, object?>? state = null)
         => MarkCompleted(job, BackgroundJobStatus.Failed, messages, state);
 
-    public void WriteLog(string alias, BackgroundJobRunLogLevel level, string message)
+    public void WriteLog(IRecurringBackgroundJob job, BackgroundJobRunLogLevel level, string message)
     {
-        var context = _runExecutionContextAccessor.Current;
-        if (string.IsNullOrWhiteSpace(message) || ShouldInclude(alias) is false)
-        {
-            return;
-        }
+        var alias = BackgroundJobDashboardNaming.GetAlias(job);
+        var context = _runExecutionContextAccessor.Get(job);
 
-        WriteApplicationLog(alias, level, message);
+        WriteLogCore(alias, context, level, message);
+    }
 
-        TryExecuteWrite(alias, "persist background job run log", () =>
-        {
-            using var scope = _scopeProvider.CreateScope(autoComplete: true);
-            var runId = context?.RunId ?? GetLatestRunningRun(scope.Database, alias)?.Id;
-            if (runId is null)
-            {
-                return;
-            }
+    public void WriteLog(Type jobType, BackgroundJobRunLogLevel level, string message)
+    {
+        var alias = BackgroundJobDashboardNaming.GetAlias(jobType);
 
-            InsertLog(scope.Database, runId.Value, level, message);
-        });
+        WriteLogCore(alias, null, level, message);
     }
 
     public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(IEnumerable<string> aliases, BackgroundJobRunTrigger? trigger = null, int maxLogsPerRun = 20)
@@ -193,15 +220,26 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         return result;
     }
 
-    private static void InsertLog(IDatabase database, Guid runId, BackgroundJobRunLogLevel level, string message)
+    private static void InsertLog(IDatabase database, Guid runId, BackgroundJobRunLogLevel level, string message, DateTime? loggedAt = null)
         => database.Insert(new BackgroundJobRunLogDto
         {
             Id = Guid.NewGuid(),
             RunId = runId,
             Level = level.ToString(),
             Message = message,
-            LoggedAt = DateTime.UtcNow,
+            LoggedAt = loggedAt ?? DateTime.UtcNow,
         });
+
+    private static PendingLogEntry[] DrainPendingLogs(BackgroundJobRunExecutionContext context)
+    {
+        var entries = new List<PendingLogEntry>();
+        while (context.PendingLogs.TryDequeue(out var entry))
+        {
+            entries.Add(entry);
+        }
+
+        return entries.ToArray();
+    }
 
     private static BackgroundJobRunDto? GetLatestRunningRun(IDatabase database, string alias)
         => database.Fetch<BackgroundJobRunDto>(
@@ -245,6 +283,39 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
     private static string? NormalizeStoredText(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private void WriteLogCore(string alias, BackgroundJobRunExecutionContext? context, BackgroundJobRunLogLevel level, string message)
+    {
+        if (string.IsNullOrWhiteSpace(message) || ShouldInclude(alias) is false)
+        {
+            return;
+        }
+
+        WriteApplicationLog(alias, level, message);
+
+        if (_options.DisablePersistence)
+        {
+            return;
+        }
+
+        if (context is not null)
+        {
+            context.PendingLogs.Enqueue(new PendingLogEntry(level, message, DateTime.UtcNow));
+            return;
+        }
+
+        TryExecuteWrite(alias, "persist background job run log", () =>
+        {
+            using var scope = _scopeProvider.CreateScope(autoComplete: true);
+            var runId = GetLatestRunningRun(scope.Database, alias)?.Id;
+            if (runId is null)
+            {
+                return;
+            }
+
+            InsertLog(scope.Database, runId.Value, level, message);
+        });
+    }
 
     private void LogRunStarted(string alias, BackgroundJobRunTrigger trigger)
     {
@@ -369,15 +440,25 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 internal sealed class BackgroundJobRunLogWriter<TJob> : IBackgroundJobRunLogWriter<TJob>
 {
     private readonly IBackgroundJobRunRecorder _runRecorder;
-    private readonly string _alias = BackgroundJobDashboardNaming.GetAlias(typeof(TJob));
 
     public BackgroundJobRunLogWriter(IBackgroundJobRunRecorder runRecorder) => _runRecorder = runRecorder;
 
-    public void Information(string message) => _runRecorder.WriteLog(_alias, BackgroundJobRunLogLevel.Information, message);
+    public void Information(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Information, message);
 
-    public void Warning(string message) => _runRecorder.WriteLog(_alias, BackgroundJobRunLogLevel.Warning, message);
+    public void Warning(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Warning, message);
 
-    public void Error(string message) => _runRecorder.WriteLog(_alias, BackgroundJobRunLogLevel.Error, message);
+    public void Error(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Error, message);
+
+    private void WriteLog(TJob job, BackgroundJobRunLogLevel level, string message)
+    {
+        if (job is IRecurringBackgroundJob recurringJob)
+        {
+            _runRecorder.WriteLog(recurringJob, level, message);
+            return;
+        }
+
+        _runRecorder.WriteLog(typeof(TJob), level, message);
+    }
 }
 
 [TableName(BackgroundJobRunDto.TableName)]

@@ -23,16 +23,16 @@ internal sealed class ShowcaseIntervalJob : RecurringBackgroundJobBase
         var runNumber = Interlocked.Increment(ref _runCount);
 
         _logger.LogInformation("ShowcaseIntervalJob run {RunNumber} started", runNumber);
-        _runLogWriter.Information("Interval showcase run started.");
-        _runLogWriter.Information($"This job uses a fixed interval schedule of {Period:c}.");
+        _runLogWriter.Information(this, "Interval showcase run started.");
+        _runLogWriter.Information(this, $"This job uses a fixed interval schedule of {Period:c}.");
 
         for (var step = 1; step <= 3; step++)
         {
             await Task.Delay(TimeSpan.FromSeconds(2));
-            _runLogWriter.Information($"Completed interval showcase step {step} of 3.");
+            _runLogWriter.Information(this, $"Completed interval showcase step {step} of 3.");
         }
 
-        _runLogWriter.Information("Interval showcase run completed successfully.");
+        _runLogWriter.Information(this, "Interval showcase run completed successfully.");
         _logger.LogInformation("ShowcaseIntervalJob run {RunNumber} completed", runNumber);
     }
 }
