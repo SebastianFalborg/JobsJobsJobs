@@ -9,7 +9,7 @@
   <PropertyGroup>
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
-    <Version>1.3.3</Version>
+    <Version>1.4.0-alpha001</Version>
     <Title>Jobs Jobs Jobs</Title>
     <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, cooperative stop support, and opt-in CRON scheduling.</Description>
     <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs;cron;recurring-jobs</PackageTags>
@@ -32,13 +32,13 @@
     <PackageReference Include="Umbraco.Cms.Web.Common" Version="17.2.2" />
     <PackageReference Include="Umbraco.Cms.Api.Common" Version="17.2.2" />
     <PackageReference Include="Umbraco.Cms.Api.Management" Version="17.2.2" />
+    <!-- Override vulnerable transitive (GHSA-37gx-xxp4-5rgx, GHSA-w3x6-4m5h-cxqf). Remove once Umbraco pulls in a patched version. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.6" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Dont include the client folder as part of packaging nuget build -->
     <Content Remove="Client\**" />
-    <Compile Remove="Controllers\JobsJobsJobsApiController.cs" />
-    <Compile Remove="Controllers\JobsJobsJobsApiControllerBase.cs" />
 
     <!-- However make the Umbraco-package.json included for dotnet pack or nuget package and visible to the solution -->
     <None Include="Client\public\umbraco-package.json" Pack="false" />

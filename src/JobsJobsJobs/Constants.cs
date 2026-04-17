@@ -1,7 +1,6 @@
-namespace JobsJobsJobs
+namespace JobsJobsJobs;
+
+public class Constants
 {
-    public class Constants
-    {
-        public const string ApiName = "jobsjobsjobs";
-    }
+    public const string ApiName = "jobsjobsjobs";
 }

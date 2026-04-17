@@ -315,8 +315,8 @@ internal sealed class MyStoppableBackgroundJob : RecurringBackgroundJobBase, ISt
     {
         for (var i = 0; i < 10; i++)
         {
-            _executionCancellation.ThrowIfCancellationRequested();
-            await Task.Delay(TimeSpan.FromSeconds(1), _executionCancellation.CancellationToken);
+            _executionCancellation.ThrowIfCancellationRequested(this);
+            await Task.Delay(TimeSpan.FromSeconds(1), _executionCancellation.GetCancellationToken(this));
         }
     }
 }
@@ -324,8 +324,8 @@ internal sealed class MyStoppableBackgroundJob : RecurringBackgroundJobBase, ISt
 
 Best practices for stoppable jobs:
 
-- check `_executionCancellation.CancellationToken` in long-running async operations such as `Task.Delay`, HTTP calls, and I/O where possible
-- call `_executionCancellation.ThrowIfCancellationRequested()` between meaningful work units in loops or multi-step workflows
+- pass `_executionCancellation.GetCancellationToken(this)` to long-running async operations such as `Task.Delay`, HTTP calls, and I/O where possible
+- call `_executionCancellation.ThrowIfCancellationRequested(this)` between meaningful work units in loops or multi-step workflows
 - use `try/catch (OperationCanceledException)` if you want to write a final log entry or perform shutdown-specific cleanup before the job exits
 - use `finally` for cleanup that must happen whether the job succeeds, fails, or is stopped
 - do not treat stop as a hard kill; if the job never checks the cancellation signal, it will keep running until its own code finishes

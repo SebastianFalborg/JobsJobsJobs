@@ -1,69 +1,30 @@
-import { css, customElement, html, state } from "@umbraco-cms/backoffice/external/lit";
+import { customElement, html, state } from "@umbraco-cms/backoffice/external/lit";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import type { UUIButtonState } from "@umbraco-cms/backoffice/external/uui";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-
-interface BackgroundJobRunLogEntry {
-  loggedAt: string;
-  level: string;
-  message: string;
-}
-
-interface BackgroundJobLatestRun {
-  id: string;
-  trigger: string;
-  status: string;
-  startedAt: string;
-  completedAt?: string;
-  duration?: string;
-  message?: string;
-  error?: string;
-  logs: Array<BackgroundJobRunLogEntry>;
-}
-
-interface BackgroundJobDashboardItem {
-  alias: string;
-  name: string;
-  type: string;
-  period: string;
-  delay: string;
-  usesCronSchedule: boolean;
-  scheduleDisplay?: string;
-  cronExpression?: string;
-  timeZoneId?: string;
-  serverRoles: Array<string>;
-  allowManualTrigger: boolean;
-  canStop: boolean;
-  isRunning: boolean;
-  stopRequested: boolean;
-  lastStartedAt?: string;
-  lastCompletedAt?: string;
-  lastDuration?: string;
-  lastSucceededAt?: string;
-  lastFailedAt?: string;
-  lastStatus: string;
-  lastError?: string;
-  lastMessage?: string;
-  latestRun?: BackgroundJobLatestRun;
-  recentRuns: Array<BackgroundJobLatestRun>;
-}
-
-interface BackgroundJobDashboardCollectionResponseModel {
-  total: number;
-  items: Array<BackgroundJobDashboardItem>;
-}
-
-type BackgroundJobFilter = "all" | "running" | "failed" | "succeeded" | "idle";
+import { BackgroundJobsApi } from "./background-jobs/api.js";
+import {
+  formatDate,
+  formatDuration,
+  formatTimeSpan,
+  getJobCardClass,
+  getStatusClass,
+  getStatusClassFromValue,
+  getStatusLabel,
+  getViewerTimeZone,
+  isSameText,
+  normalizeText,
+} from "./background-jobs/formatting.js";
+import { backgroundJobsDashboardStyles } from "./background-jobs/styles.js";
+import type {
+  BackgroundJobDashboardItem,
+  BackgroundJobFilter,
+} from "./background-jobs/types.js";
 
 @customElement("jobs-jobs-jobs-background-jobs-dashboard")
 export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   private static readonly _autoRefreshIntervalMs = 5000;
-
-  private readonly _dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
 
   private _authToken?: string | (() => Promise<string>);
 
@@ -72,6 +33,11 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   private _authCredentials: RequestCredentials = "include";
 
   private _autoRefreshHandle?: number;
+
+  private readonly _api = new BackgroundJobsApi({
+    getCredentials: () => this._authCredentials,
+    getToken: () => this._getAuthToken(),
+  });
 
   @state()
   private _items: Array<BackgroundJobDashboardItem> = [];
@@ -132,7 +98,6 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
 
     const authToken = await this._getAuthToken();
-
     if (!authToken) {
       this._stopAutoRefresh();
       return;
@@ -142,19 +107,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     this._errorMessage = "";
 
     try {
-      const response = await this._fetch(
-        "/umbraco/jobsjobsjobs/api/v1/background-jobs",
-        authToken,
-        {
-        method: "GET",
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(await this._readProblem(response));
-      }
-
-      const data = (await response.json()) as BackgroundJobDashboardCollectionResponseModel;
+      const data = await this._api.list();
       this._items = data.items ?? [];
 
       if (this._items.length > 0) {
@@ -169,11 +122,11 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
   }
 
-  private async _reload() {
+  private _reload = async () => {
     this._reloadState = "waiting";
     await this._load();
     this._reloadState = this._errorMessage ? "failed" : "success";
-  }
+  };
 
   private _startAutoRefresh() {
     this._stopAutoRefresh();
@@ -202,24 +155,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     this._errorMessage = "";
 
     try {
-      const authToken = await this._getAuthToken();
-
-      if (!authToken) {
-        throw new Error("Backoffice authentication is not ready yet.");
-      }
-
-      const response = await this._fetch(
-        `/umbraco/jobsjobsjobs/api/v1/background-jobs/run/${encodeURIComponent(alias)}`,
-        authToken,
-        {
-          method: "POST",
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(await this._readProblem(response));
-      }
-
+      await this._api.run(alias);
       this._runStates = { ...this._runStates, [alias]: "success" };
       await this._load();
     } catch (error) {
@@ -233,215 +169,13 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     this._errorMessage = "";
 
     try {
-      const authToken = await this._getAuthToken();
-
-      if (!authToken) {
-        throw new Error("Backoffice authentication is not ready yet.");
-      }
-
-      const response = await this._fetch(
-        `/umbraco/jobsjobsjobs/api/v1/background-jobs/stop/${encodeURIComponent(alias)}`,
-        authToken,
-        {
-          method: "POST",
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(await this._readProblem(response));
-      }
-
+      await this._api.stop(alias);
       await this._load();
       this._stopStates = { ...this._stopStates, [alias]: undefined };
     } catch (error) {
       this._stopStates = { ...this._stopStates, [alias]: "failed" };
       this._errorMessage = error instanceof Error ? error.message : `Could not stop ${alias}.`;
     }
-  }
-
-  private async _fetch(input: RequestInfo | URL, authToken: string, init?: RequestInit) {
-    const headers = new Headers(init?.headers);
-    headers.set("Content-Type", "application/json");
-    headers.set("Authorization", `Bearer ${authToken}`);
-
-    return fetch(input, {
-      ...init,
-      credentials: this._authCredentials,
-      headers,
-    });
-  }
-
-  private async _readProblem(response: Response) {
-    try {
-      const problem = (await response.json()) as { detail?: string; title?: string; message?: string };
-      return problem.detail ?? problem.title ?? problem.message ?? `Request failed with status ${response.status}.`;
-    } catch {
-      return `Request failed with status ${response.status}.`;
-    }
-  }
-
-  private _getViewerTimeZone() {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "your local time";
-  }
-
-  private _formatDate(value?: string) {
-    if (!value) return "-";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : this._dateTimeFormatter.format(date);
-  }
-
-  private _formatTimeSpan(value: string) {
-    return value.startsWith("00:") || value.startsWith("0.") ? value : value;
-  }
-
-  private _renderSchedule(item: BackgroundJobDashboardItem) {
-    if (item.usesCronSchedule) {
-      return html`
-        <div>${item.scheduleDisplay ?? item.cronExpression ?? "-"}</div>
-        <div class="muted">CRON · ${item.timeZoneId ?? "UTC"}</div>
-      `;
-    }
-
-    return html`
-      <div>${this._formatTimeSpan(item.period)}</div>
-      <div class="muted">Interval</div>
-    `;
-  }
-
-  private _formatDuration(value?: string) {
-    if (!value) return "-";
-
-    const match = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(value);
-    if (!match) {
-      return value;
-    }
-
-    const days = Number(match[1] ?? "0");
-    const hours = Number(match[2]);
-    const minutes = Number(match[3]);
-    const seconds = Number(match[4]);
-    const fractional = match[5] ?? "";
-    const milliseconds = fractional ? Math.round(Number(`0.${fractional}`) * 1000) : 0;
-
-    if (days > 0 || hours > 0 || minutes > 0) {
-      const parts = [];
-      if (days > 0) parts.push(`${days}d`);
-      if (hours > 0) parts.push(`${hours}h`);
-      if (minutes > 0) parts.push(`${minutes}m`);
-      if (seconds > 0) parts.push(`${seconds}s`);
-      return parts.join(" ");
-    }
-
-    if (seconds > 0) {
-      if (milliseconds === 0) {
-        return `${seconds}s`;
-      }
-
-      return `${seconds}.${milliseconds.toString().padStart(3, "0").replace(/0+$/, "")}s`;
-    }
-
-    return `${milliseconds}ms`;
-  }
-
-  private _getStatusLabel(item: BackgroundJobDashboardItem) {
-    if (item.stopRequested) {
-      return "StopRequested";
-    }
-
-    return item.isRunning ? "Running" : item.lastStatus;
-  }
-
-  private _getStatusClassFromValue(status: string) {
-    return `status-badge status-${status.toLowerCase()}`;
-  }
-
-  private _getStatusClass(item: BackgroundJobDashboardItem) {
-    return this._getStatusClassFromValue(this._getStatusLabel(item));
-  }
-
-  private _normalizeText(value?: string) {
-    const trimmed = value?.trim();
-    return trimmed ? trimmed : undefined;
-  }
-
-  private _isSameText(left?: string, right?: string) {
-    return this._normalizeText(left) === this._normalizeText(right);
-  }
-
-  private _hasCurrentStateDetails(item: BackgroundJobDashboardItem) {
-    if (item.stopRequested || item.isRunning) {
-      return true;
-    }
-
-    const currentError = this._normalizeText(item.lastError);
-    const currentMessage = this._normalizeText(item.lastMessage);
-    const storedError = this._normalizeText(item.latestRun?.error);
-    const storedMessage = this._normalizeText(item.latestRun?.message);
-
-    if (currentError && this._isSameText(currentError, storedError) === false) {
-      return true;
-    }
-
-    if (currentMessage && this._isSameText(currentMessage, storedMessage) === false) {
-      return true;
-    }
-
-    return false;
-  }
-
-  private _renderCurrentStateDetails(item: BackgroundJobDashboardItem) {
-    const currentError = this._normalizeText(item.lastError);
-    const currentMessage = this._normalizeText(item.lastMessage);
-    const storedError = this._normalizeText(item.latestRun?.error);
-    const storedMessage = this._normalizeText(item.latestRun?.message);
-
-    if (item.stopRequested) {
-      return html`
-        <div class="current-state-title-row">
-          <strong>Current state</strong>
-          <span class="current-state-pill current-state-pill-warning">Stop requested</span>
-        </div>
-        <div>Waiting for the running job to stop gracefully.</div>
-        ${item.lastStartedAt ? html`<div class="muted">Started ${this._formatDate(item.lastStartedAt)}</div>` : ""}
-        ${currentMessage ? html`<div><strong>Message:</strong> ${currentMessage}</div>` : ""}
-      `;
-    }
-
-    if (item.isRunning) {
-      return html`
-        <div class="current-state-title-row">
-          <strong>Current state</strong>
-          <span class="current-state-pill current-state-pill-running">Running now</span>
-        </div>
-        ${item.lastStartedAt ? html`<div>Started ${this._formatDate(item.lastStartedAt)}</div>` : html`<div>Job is currently executing.</div>`}
-        ${currentMessage ? html`<div><strong>Message:</strong> ${currentMessage}</div>` : ""}
-      `;
-    }
-
-    if (currentError && this._isSameText(currentError, storedError) === false) {
-      return html`
-        <div class="current-state-title-row">
-          <strong>Current state</strong>
-          <span class="current-state-pill current-state-pill-error">Attention</span>
-        </div>
-        <div><strong>Error:</strong> ${currentError}</div>
-        ${currentMessage && this._isSameText(currentMessage, storedMessage) === false
-          ? html`<div><strong>Message:</strong> ${currentMessage}</div>`
-          : ""}
-      `;
-    }
-
-    if (currentMessage && this._isSameText(currentMessage, storedMessage) === false) {
-      return html`
-        <div class="current-state-title-row">
-          <strong>Current state</strong>
-          <span class="current-state-pill">Live update</span>
-        </div>
-        <div><strong>Message:</strong> ${currentMessage}</div>
-      `;
-    }
-
-    return "";
   }
 
   private _matchesFilter(item: BackgroundJobDashboardItem) {
@@ -459,32 +193,102 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
   }
 
-  private _getJobCardClass(item: BackgroundJobDashboardItem) {
-    if (item.isRunning) {
-      return "job-card-running";
-    }
-
-    if (item.lastStatus === "Failed") {
-      return "job-card-failed";
-    }
-
-    if (item.lastStatus === "Succeeded") {
-      return "job-card-succeeded";
-    }
-
-    if (!item.lastStartedAt && !item.latestRun) {
-      return "job-card-never-run";
-    }
-
-    return "";
-  }
-
   private _getVisibleItems() {
     return this._items.filter((item) => this._matchesFilter(item));
   }
 
-  private _onFilterChange(event: Event) {
+  private _onFilterChange = (event: Event) => {
     this._statusFilter = (event.target as HTMLSelectElement).value as BackgroundJobFilter;
+  };
+
+  private _hasCurrentStateDetails(item: BackgroundJobDashboardItem) {
+    if (item.stopRequested || item.isRunning) {
+      return true;
+    }
+
+    const currentError = normalizeText(item.lastError);
+    const currentMessage = normalizeText(item.lastMessage);
+    const storedError = normalizeText(item.latestRun?.error);
+    const storedMessage = normalizeText(item.latestRun?.message);
+
+    if (currentError && isSameText(currentError, storedError) === false) {
+      return true;
+    }
+
+    if (currentMessage && isSameText(currentMessage, storedMessage) === false) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private _renderSchedule(item: BackgroundJobDashboardItem) {
+    if (item.usesCronSchedule) {
+      return html`
+        <div>${item.scheduleDisplay ?? item.cronExpression ?? "-"}</div>
+        <div class="muted">CRON · ${item.timeZoneId ?? "UTC"}</div>
+      `;
+    }
+
+    return html`
+      <div>${formatTimeSpan(item.period)}</div>
+      <div class="muted">Interval</div>
+    `;
+  }
+
+  private _renderCurrentStateDetails(item: BackgroundJobDashboardItem) {
+    const currentError = normalizeText(item.lastError);
+    const currentMessage = normalizeText(item.lastMessage);
+    const storedError = normalizeText(item.latestRun?.error);
+    const storedMessage = normalizeText(item.latestRun?.message);
+
+    if (item.stopRequested) {
+      return html`
+        <div class="current-state-title-row">
+          <strong>Current state</strong>
+          <span class="current-state-pill current-state-pill-warning">Stop requested</span>
+        </div>
+        <div>Waiting for the running job to stop gracefully.</div>
+        ${item.lastStartedAt ? html`<div class="muted">Started ${formatDate(item.lastStartedAt)}</div>` : ""}
+        ${currentMessage ? html`<div><strong>Message:</strong> ${currentMessage}</div>` : ""}
+      `;
+    }
+
+    if (item.isRunning) {
+      return html`
+        <div class="current-state-title-row">
+          <strong>Current state</strong>
+          <span class="current-state-pill current-state-pill-running">Running now</span>
+        </div>
+        ${item.lastStartedAt ? html`<div>Started ${formatDate(item.lastStartedAt)}</div>` : html`<div>Job is currently executing.</div>`}
+        ${currentMessage ? html`<div><strong>Message:</strong> ${currentMessage}</div>` : ""}
+      `;
+    }
+
+    if (currentError && isSameText(currentError, storedError) === false) {
+      return html`
+        <div class="current-state-title-row">
+          <strong>Current state</strong>
+          <span class="current-state-pill current-state-pill-error">Attention</span>
+        </div>
+        <div><strong>Error:</strong> ${currentError}</div>
+        ${currentMessage && isSameText(currentMessage, storedMessage) === false
+          ? html`<div><strong>Message:</strong> ${currentMessage}</div>`
+          : ""}
+      `;
+    }
+
+    if (currentMessage && isSameText(currentMessage, storedMessage) === false) {
+      return html`
+        <div class="current-state-title-row">
+          <strong>Current state</strong>
+          <span class="current-state-pill">Live update</span>
+        </div>
+        <div><strong>Message:</strong> ${currentMessage}</div>
+      `;
+    }
+
+    return "";
   }
 
   private _renderLatestRun(item: BackgroundJobDashboardItem) {
@@ -503,16 +307,16 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
               <span class="muted">Details</span>
             </span>
             <strong>Latest stored run</strong>
-            <span class=${this._getStatusClassFromValue(run.status)}>${run.status}</span>
+            <span class=${getStatusClassFromValue(run.status)}>${run.status}</span>
           </span>
           <span class="muted persisted-run-toggle-meta">
-            ${this._formatDate(run.startedAt)}
+            ${formatDate(run.startedAt)}
             ${run.trigger}
-            ${this._formatDuration(run.duration)}
+            ${formatDuration(run.duration)}
           </span>
         </summary>
         <div class="persisted-run-body">
-          ${run.completedAt ? html`<div class="muted">Completed ${this._formatDate(run.completedAt)}</div>` : ""}
+          ${run.completedAt ? html`<div class="muted">Completed ${formatDate(run.completedAt)}</div>` : ""}
           ${run.error
             ? html`<div><strong>Stored error:</strong> ${run.error}</div>`
             : run.message
@@ -527,8 +331,8 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
                       (log) => html`
                         <li class="log-item">
                           <div class="log-meta">
-                            <span class="log-time">${this._formatDate(log.loggedAt)}</span>
-                            <span class=${this._getStatusClassFromValue(log.level)}>${log.level}</span>
+                            <span class="log-time">${formatDate(log.loggedAt)}</span>
+                            <span class=${getStatusClassFromValue(log.level)}>${log.level}</span>
                           </div>
                           <span class="log-message">${log.message}</span>
                         </li>
@@ -568,10 +372,10 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
               (run) => html`
                 <li class="recent-run-item">
                   <div class="recent-run-main">
-                    <span class=${this._getStatusClassFromValue(run.status)}>${run.status}</span>
-                    <span>${this._formatDate(run.startedAt)}</span>
+                    <span class=${getStatusClassFromValue(run.status)}>${run.status}</span>
+                    <span>${formatDate(run.startedAt)}</span>
                     <span class="muted">${run.trigger}</span>
-                    <span class="muted">${this._formatDuration(run.duration)}</span>
+                    <span class="muted">${formatDuration(run.duration)}</span>
                   </div>
                   ${run.error
                     ? html`<div class="recent-run-message"><strong>Error:</strong> ${run.error}</div>`
@@ -622,12 +426,12 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
     return items.map(
       (item) => html`
-        <section class="job-card ${this._getJobCardClass(item)}">
+        <section class="job-card ${getJobCardClass(item)}">
           <div class="job-card-header">
             <div class="job-card-heading">
               <div class="job-card-title-row">
                 <strong class="job-name">${item.name}</strong>
-                <span class=${this._getStatusClass(item)}>${this._getStatusLabel(item)}</span>
+                <span class=${getStatusClass(item)}>${getStatusLabel(item)}</span>
               </div>
               <div class="muted job-meta" title=${item.type}>${item.type}</div>
             </div>
@@ -666,19 +470,19 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
           <div class="job-card-grid">
             <div class="job-stat">
               <span class="job-stat-label">Last success</span>
-              <span class="job-stat-value">${this._formatDate(item.lastSucceededAt)}</span>
+              <span class="job-stat-value">${formatDate(item.lastSucceededAt)}</span>
             </div>
             <div class="job-stat">
               <span class="job-stat-label">Last failure</span>
-              <span class="job-stat-value">${this._formatDate(item.lastFailedAt)}</span>
+              <span class="job-stat-value">${formatDate(item.lastFailedAt)}</span>
             </div>
             <div class="job-stat">
               <span class="job-stat-label">Last start</span>
-              <span class="job-stat-value">${this._formatDate(item.lastStartedAt)}</span>
+              <span class="job-stat-value">${formatDate(item.lastStartedAt)}</span>
             </div>
             <div class="job-stat">
               <span class="job-stat-label">Last duration</span>
-              <span class="job-stat-value">${this._formatDuration(item.lastDuration)}</span>
+              <span class="job-stat-value">${formatDuration(item.lastDuration)}</span>
             </div>
             <div class="job-stat job-stat-schedule">
               <span class="job-stat-label">Schedule</span>
@@ -705,7 +509,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         </uui-button>
         <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
         <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds when custom jobs are present.</p>
-        <p class="muted refresh-info">Run timestamps are shown in ${this._getViewerTimeZone()}. CRON schedules use the configured job timezone.</p>
+        <p class="muted refresh-info">Run timestamps are shown in ${getViewerTimeZone()}. CRON schedules use the configured job timezone.</p>
         ${this._errorMessage ? html`<p class="error">${this._errorMessage}</p>` : ""}
         <div class="toolbar">
           <label class="filter-label" for="status-filter">Status filter</label>
@@ -724,465 +528,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     `;
   }
 
-  static override styles = [
-    UmbTextStyles,
-    css`
-      :host {
-        display: block;
-        padding: var(--uui-size-layout-1);
-      }
-
-      .job-card-list {
-        display: grid;
-        gap: var(--uui-size-space-4);
-      }
-
-      .muted {
-        color: var(--uui-color-text-alt);
-        font-size: var(--uui-type-small-size);
-      }
-
-      .refresh-info {
-        margin-top: calc(var(--uui-size-space-1) * -1);
-      }
-
-      .empty-state {
-        display: flex;
-        flex-direction: column;
-        gap: var(--uui-size-space-2);
-      }
-
-      .empty-state-panel {
-        padding: var(--uui-size-space-4);
-        border: 1px solid var(--uui-color-border);
-        border-radius: var(--uui-border-radius);
-        background: var(--uui-color-surface);
-      }
-
-      .empty-state-link {
-        width: fit-content;
-        color: var(--uui-color-interactive-emphasis);
-        text-decoration: none;
-        font-weight: 600;
-      }
-
-      .empty-state-link:hover {
-        text-decoration: underline;
-      }
-
-      .toolbar {
-        display: flex;
-        align-items: center;
-        gap: var(--uui-size-space-3);
-        margin-bottom: var(--uui-size-space-4);
-      }
-
-      .filter-label {
-        font-size: var(--uui-type-small-size);
-        color: var(--uui-color-text-alt);
-      }
-
-      .filter-select {
-        min-width: 10rem;
-        padding: var(--uui-size-space-2) var(--uui-size-space-3);
-        border: 1px solid var(--uui-color-border);
-        border-radius: var(--uui-border-radius);
-        background: var(--uui-color-surface);
-        color: var(--uui-color-text);
-      }
-
-      .job-card {
-        display: grid;
-        gap: var(--uui-size-space-4);
-        padding: var(--uui-size-space-4);
-        border: 1px solid var(--uui-color-border);
-        border-radius: calc(var(--uui-border-radius) * 1.5);
-        background:
-          linear-gradient(180deg, color-mix(in srgb, var(--uui-color-surface-alt) 65%, white) 0%, var(--uui-color-surface) 100%);
-        box-shadow:
-          0 1px 2px color-mix(in srgb, var(--uui-color-border) 40%, transparent),
-          0 14px 32px color-mix(in srgb, var(--uui-color-border) 10%, transparent);
-        position: relative;
-        overflow: hidden;
-      }
-
-      .job-card::before {
-        content: "";
-        position: absolute;
-        inset: 0 auto 0 0;
-        width: 6px;
-        background: linear-gradient(180deg, var(--uui-color-interactive-emphasis), color-mix(in srgb, var(--uui-color-border-emphasis) 65%, white));
-      }
-
-      .job-card-running::before {
-        background: linear-gradient(180deg, var(--uui-color-warning-emphasis), var(--uui-color-warning));
-      }
-
-      .job-card-failed::before {
-        background: linear-gradient(180deg, var(--uui-color-danger-emphasis), var(--uui-color-danger));
-      }
-
-      .job-card-succeeded::before {
-        background: linear-gradient(180deg, var(--uui-color-positive-emphasis), var(--uui-color-positive));
-      }
-
-      .job-card-never-run::before {
-        background: linear-gradient(180deg, var(--uui-color-interactive-emphasis), var(--uui-color-interactive));
-      }
-
-      .job-card-header {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: var(--uui-size-space-3);
-      }
-
-      .job-card-heading {
-        display: grid;
-        gap: var(--uui-size-space-1);
-        min-width: 0;
-        flex: 1 1 24rem;
-      }
-
-      .job-card-title-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--uui-size-space-2);
-      }
-
-      .job-card-subheader {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--uui-size-space-2);
-      }
-
-      .job-type-chip {
-        display: inline-flex;
-        align-items: center;
-        min-height: 1.85rem;
-        padding: 0.2rem 0.65rem;
-        border: 1px solid color-mix(in srgb, var(--uui-color-border) 80%, transparent);
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--uui-color-surface-alt) 82%, white);
-        color: var(--uui-color-text-alt);
-        font-size: var(--uui-type-small-size);
-        font-weight: 600;
-      }
-
-      .job-name {
-        display: block;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        line-height: 1.35;
-        font-size: 1.05rem;
-      }
-
-      .job-meta {
-        display: block;
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .job-card-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-        gap: var(--uui-size-space-3);
-      }
-
-      .job-stat {
-        display: grid;
-        gap: var(--uui-size-space-1);
-        padding: var(--uui-size-space-3);
-        border-radius: var(--uui-border-radius);
-        background: linear-gradient(180deg, color-mix(in srgb, var(--uui-color-surface-alt) 88%, white) 0%, var(--uui-color-surface-alt) 100%);
-        border: 1px solid color-mix(in srgb, var(--uui-color-border) 75%, transparent);
-        box-shadow: inset 0 1px 0 color-mix(in srgb, white 70%, transparent);
-      }
-
-      .job-stat-schedule {
-        grid-column: span 2;
-      }
-
-      .job-stat-label {
-        font-size: var(--uui-type-small-size);
-        color: var(--uui-color-text-alt);
-      }
-
-      .job-stat-value {
-        min-width: 0;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-      }
-
-      .current-state-panel {
-        display: grid;
-        gap: var(--uui-size-space-2);
-        padding: var(--uui-size-space-3);
-        border: 1px solid color-mix(in srgb, var(--uui-color-warning) 35%, var(--uui-color-border));
-        border-left: 5px solid var(--uui-color-warning-emphasis);
-        background: linear-gradient(180deg, color-mix(in srgb, var(--uui-color-warning) 7%, white) 0%, var(--uui-color-surface-alt) 100%);
-        border-radius: var(--uui-border-radius);
-      }
-
-      .current-state-title-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--uui-size-space-2);
-      }
-
-      .current-state-pill {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--uui-color-interactive-emphasis) 12%, white);
-        color: var(--uui-color-interactive-emphasis);
-        font-size: var(--uui-type-small-size);
-        font-weight: 700;
-      }
-
-      .current-state-pill-running {
-        background: color-mix(in srgb, var(--uui-color-warning) 18%, white);
-        color: var(--uui-color-warning-emphasis);
-      }
-
-      .current-state-pill-warning {
-        background: color-mix(in srgb, var(--uui-color-warning) 22%, white);
-        color: var(--uui-color-warning-emphasis);
-      }
-
-      .current-state-pill-error {
-        background: color-mix(in srgb, var(--uui-color-danger) 18%, white);
-        color: var(--uui-color-danger-emphasis);
-      }
-
-      .job-card-sections {
-        display: grid;
-        gap: var(--uui-size-space-3);
-      }
-
-      .status-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        font-size: var(--uui-type-small-size);
-        font-weight: 700;
-        white-space: nowrap;
-      }
-
-      .status-running {
-        background: color-mix(in srgb, var(--uui-color-warning) 18%, white);
-        color: var(--uui-color-warning-emphasis);
-      }
-
-      .status-stoprequested {
-        background: color-mix(in srgb, var(--uui-color-warning) 18%, white);
-        color: var(--uui-color-warning-emphasis);
-      }
-
-      .status-succeeded {
-        background: color-mix(in srgb, var(--uui-color-positive) 18%, white);
-        color: var(--uui-color-positive-emphasis);
-      }
-
-      .status-failed {
-        background: color-mix(in srgb, var(--uui-color-danger) 18%, white);
-        color: var(--uui-color-danger-emphasis);
-      }
-
-      .status-idle,
-      .status-stopped,
-      .status-ignored {
-        background: var(--uui-color-surface-alt);
-        color: var(--uui-color-text);
-      }
-
-      .action-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--uui-size-space-2);
-        justify-content: flex-end;
-        align-items: flex-start;
-      }
-
-      @media (max-width: 1200px) {
-        .job-stat-schedule {
-          grid-column: span 1;
-        }
-      }
-
-      @media (max-width: 720px) {
-        .job-card {
-          padding: var(--uui-size-space-3);
-        }
-
-        .job-card-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      .persisted-run {
-        display: grid;
-        gap: var(--uui-size-space-2);
-        padding: var(--uui-size-space-3);
-        border: 1px solid var(--uui-color-border);
-        border-radius: var(--uui-border-radius);
-        background: linear-gradient(180deg, color-mix(in srgb, var(--uui-color-surface-alt) 92%, white) 0%, var(--uui-color-surface-alt) 100%);
-        box-shadow: inset 0 1px 0 color-mix(in srgb, white 65%, transparent);
-      }
-
-      .recent-runs {
-        display: grid;
-        gap: var(--uui-size-space-2);
-      }
-
-      .recent-runs-header {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--uui-size-space-2);
-      }
-
-      .recent-run-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: var(--uui-size-space-2);
-      }
-
-      .recent-run-item {
-        display: grid;
-        gap: var(--uui-size-space-1);
-        padding: var(--uui-size-space-2) var(--uui-size-space-3);
-        background: linear-gradient(180deg, color-mix(in srgb, var(--uui-color-surface) 90%, white) 0%, var(--uui-color-surface) 100%);
-        border-radius: var(--uui-border-radius);
-        border: 1px solid color-mix(in srgb, var(--uui-color-border) 85%, transparent);
-      }
-
-      .recent-run-main {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--uui-size-space-2);
-      }
-
-      .recent-run-message {
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .persisted-run-toggle {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--uui-size-space-2);
-        cursor: pointer;
-      }
-
-      .persisted-run-toggle-meta {
-        display: inline-flex;
-        flex-wrap: wrap;
-        gap: var(--uui-size-space-2);
-      }
-
-      .persisted-run-body {
-        display: grid;
-        gap: var(--uui-size-space-2);
-        padding-top: var(--uui-size-space-2);
-      }
-
-      .persisted-run-heading {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--uui-size-space-3);
-      }
-
-      .persisted-run-indicator {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--uui-size-space-1);
-      }
-
-      .persisted-run-chevron {
-        display: inline-block;
-        transition: transform 120ms ease;
-      }
-
-      .persisted-run[open] .persisted-run-chevron {
-        transform: rotate(90deg);
-      }
-
-      .persisted-run-logs {
-        display: grid;
-        gap: var(--uui-size-space-2);
-      }
-
-      .log-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: var(--uui-size-space-2);
-      }
-
-      .log-item {
-        display: grid;
-        gap: var(--uui-size-space-1);
-        padding: var(--uui-size-space-2) var(--uui-size-space-3);
-        background: var(--uui-color-surface);
-        border-radius: var(--uui-border-radius);
-        border: 1px solid color-mix(in srgb, var(--uui-color-border) 85%, transparent);
-      }
-
-      .log-meta {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--uui-size-space-2);
-      }
-
-      .log-time,
-      .log-level {
-        font-size: var(--uui-type-small-size);
-        color: var(--uui-color-text-alt);
-      }
-
-      .status-information {
-        background: var(--uui-color-surface-alt);
-        color: var(--uui-color-text);
-      }
-
-      .status-warning {
-        background: color-mix(in srgb, var(--uui-color-warning) 18%, white);
-        color: var(--uui-color-warning-emphasis);
-      }
-
-      .status-error {
-        background: color-mix(in srgb, var(--uui-color-danger) 18%, white);
-        color: var(--uui-color-danger-emphasis);
-      }
-
-      .log-message {
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .error {
-        color: var(--uui-color-danger);
-        font-weight: 700;
-      }
-    `,
-  ];
+  static override styles = [UmbTextStyles, backgroundJobsDashboardStyles];
 }
 
 export default JobsJobsJobsBackgroundJobsDashboardElement;

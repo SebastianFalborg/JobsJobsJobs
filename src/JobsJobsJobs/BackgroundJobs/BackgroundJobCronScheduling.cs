@@ -47,7 +47,7 @@ public abstract class CronBackgroundJobBase : ICronBackgroundJob
 
 public static class BackgroundJobCronRegistrationExtensions
 {
-    private static readonly MethodInfo _addStoppableCronBackgroundJobCoreMethod = typeof(BackgroundJobCronRegistrationExtensions).GetMethod(
+    private static readonly MethodInfo s_addStoppableCronBackgroundJobCoreMethod = typeof(BackgroundJobCronRegistrationExtensions).GetMethod(
         nameof(AddStoppableCronBackgroundJobCore),
         BindingFlags.NonPublic | BindingFlags.Static
     )!;
@@ -73,7 +73,7 @@ public static class BackgroundJobCronRegistrationExtensions
 
         if (typeof(IStoppableCronBackgroundJob).IsAssignableFrom(typeof(TJob)))
         {
-            _addStoppableCronBackgroundJobCoreMethod.MakeGenericMethod(typeof(TJob)).Invoke(null, new object[] { services });
+            s_addStoppableCronBackgroundJobCoreMethod.MakeGenericMethod(typeof(TJob)).Invoke(null, new object[] { services });
             return services;
         }
 
@@ -165,6 +165,7 @@ internal interface IBackgroundJobCronSuppressionCoordinator
 internal sealed class BackgroundJobCronScheduler : IBackgroundJobCronScheduler
 {
     private readonly ConcurrentDictionary<string, IReadOnlyList<CronExpression>> _expressions = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _baselineByAlias = new(StringComparer.OrdinalIgnoreCase);
     private readonly IBackgroundJobRunHistoryService _runHistoryService;
     private readonly DateTime _startedAtUtc;
 
@@ -180,19 +181,30 @@ internal sealed class BackgroundJobCronScheduler : IBackgroundJobCronScheduler
     public bool ShouldExecute(string alias, string cronExpression, TimeZoneInfo timeZone, DateTime startedAtUtc)
     {
         var expressions = _expressions.GetOrAdd(cronExpression, ParseExpressions);
-        var latestAutomaticRuns = _runHistoryService.GetLatestRuns(new[] { alias }, BackgroundJobRunTrigger.Automatic, maxLogsPerRun: 0);
-
         var evaluationTimeUtc = EnsureUtc(startedAtUtc);
+        var baseline = _baselineByAlias.GetOrAdd(alias, LoadBaselineFromHistory);
 
-        var baseline = latestAutomaticRuns.TryGetValue(alias, out var latestAutomaticRun)
-            ? EnsureUtc(latestAutomaticRun.StartedAt)
-            : _startedAtUtc.AddTicks(-1);
-
-        return expressions.Any(expression =>
+        var shouldExecute = expressions.Any(expression =>
         {
             var nextOccurrence = expression.GetNextOccurrence(baseline, timeZone);
             return nextOccurrence.HasValue && nextOccurrence.Value <= evaluationTimeUtc;
         });
+
+        if (shouldExecute)
+        {
+            _baselineByAlias[alias] = evaluationTimeUtc;
+        }
+
+        return shouldExecute;
+    }
+
+    private DateTime LoadBaselineFromHistory(string alias)
+    {
+        var latestAutomaticRuns = _runHistoryService.GetLatestRuns(new[] { alias }, BackgroundJobRunTrigger.Automatic, maxLogsPerRun: 0);
+
+        return latestAutomaticRuns.TryGetValue(alias, out var latestAutomaticRun)
+            ? EnsureUtc(latestAutomaticRun.StartedAt)
+            : _startedAtUtc.AddTicks(-1);
     }
 
     private static IReadOnlyList<CronExpression> ParseExpressions(string cronExpression)

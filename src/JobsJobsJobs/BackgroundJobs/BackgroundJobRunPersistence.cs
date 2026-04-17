@@ -9,8 +9,8 @@ namespace JobsJobsJobs.BackgroundJobs;
 
 internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, IBackgroundJobRunRecorder
 {
-    private static readonly TimeSpan[] _writeRetryDelays = { TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500) };
-    private static readonly SemaphoreSlim _writeSemaphore = new(1, 1);
+    private static readonly TimeSpan[] s_writeRetryDelays = { TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500) };
+    private static readonly SemaphoreSlim s_writeSemaphore = new(1, 1);
     private readonly ILogger<BackgroundJobRunStore> _logger;
     private readonly BackgroundJobDashboardOptions _options;
     private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
@@ -72,7 +72,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
         TryExecuteWrite(alias, "persist background job run", () =>
         {
-            _writeSemaphore.Wait();
+            s_writeSemaphore.Wait();
             try
             {
                 using var scope = _scopeProvider.CreateScope(autoComplete: true);
@@ -132,7 +132,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
             }
             finally
             {
-                _writeSemaphore.Release();
+                s_writeSemaphore.Release();
             }
         });
     }
@@ -378,7 +378,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
     {
         Exception? lastException = null;
 
-        for (var attempt = 0; attempt <= _writeRetryDelays.Length; attempt++)
+        for (var attempt = 0; attempt <= s_writeRetryDelays.Length; attempt++)
         {
             try
             {
@@ -388,16 +388,16 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
             catch (Exception ex)
             {
                 lastException = ex;
-                if (attempt == _writeRetryDelays.Length)
+                if (attempt == s_writeRetryDelays.Length)
                 {
                     break;
                 }
 
-                Thread.Sleep(_writeRetryDelays[attempt]);
+                Thread.Sleep(s_writeRetryDelays[attempt]);
             }
         }
 
-        _logger.LogWarning(lastException, "Failed to {Operation} for background job {JobAlias} after {AttemptCount} attempts. Continuing without persisted history update.", operation, alias, _writeRetryDelays.Length + 1);
+        _logger.LogWarning(lastException, "Failed to {Operation} for background job {JobAlias} after {AttemptCount} attempts. Continuing without persisted history update.", operation, alias, s_writeRetryDelays.Length + 1);
     }
 
     private void TryExecuteRead(string operation, Action action)

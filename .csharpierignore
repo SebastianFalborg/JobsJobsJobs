@@ -11,4 +11,3 @@ src/JobsJobsJobs/BackgroundJobs/BackgroundJobDashboardService.cs
 src/JobsJobsJobs/BackgroundJobs/BackgroundJobRunPersistence.cs
 src/JobsJobsJobs/Composers/JobsJobsJobsApiComposer.cs
 src/JobsJobsJobs/Controllers/BackgroundJobsControllerBase.cs
-src/JobsJobsJobs/Controllers/JobsJobsJobsApiControllerBase.cs
