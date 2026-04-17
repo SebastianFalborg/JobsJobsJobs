@@ -51,8 +51,26 @@
     </None>
   </ItemGroup>
 
-  <Target Name="BuildClientAssets" BeforeTargets="Pack">
+  <ItemGroup>
+    <ClientSourceFiles Include="$(ClientAppDirectory)\src\**\*" />
+    <ClientSourceFiles Include="$(ClientAppDirectory)\public\**\*" />
+    <ClientSourceFiles Include="$(ClientAppDirectory)\package.json;$(ClientAppDirectory)\package-lock.json;$(ClientAppDirectory)\tsconfig.json;$(ClientAppDirectory)\vite.config.ts" />
+  </ItemGroup>
+
+  <Target
+    Name="EnsureClientDependencies"
+    BeforeTargets="BuildClientAssets"
+    Condition="!Exists('$(MSBuildProjectDirectory)\$(ClientAppDirectory)\node_modules')"
+  >
     <Exec Command="npm ci" WorkingDirectory="$(MSBuildProjectDirectory)\$(ClientAppDirectory)" />
+  </Target>
+
+  <Target
+    Name="BuildClientAssets"
+    BeforeTargets="Build;Pack"
+    Inputs="@(ClientSourceFiles)"
+    Outputs="wwwroot\App_Plugins\JobsJobsJobs\jobs-jobs-jobs.js"
+  >
     <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\$(ClientAppDirectory)" />
   </Target>
 </Project>
