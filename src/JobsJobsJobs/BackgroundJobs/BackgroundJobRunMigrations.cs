@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Events;

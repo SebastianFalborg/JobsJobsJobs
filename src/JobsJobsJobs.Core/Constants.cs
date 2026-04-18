@@ -1,4 +1,4 @@
-namespace JobsJobsJobs;
+namespace JobsJobsJobs.Core;
 
 public class Constants
 {

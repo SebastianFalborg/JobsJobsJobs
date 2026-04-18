@@ -1,4 +1,4 @@
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Umbraco.Cms.Core.Sync;
 
 namespace JobsJobsJobs.TestSite;

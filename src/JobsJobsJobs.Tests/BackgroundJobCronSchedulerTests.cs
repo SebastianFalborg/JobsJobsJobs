@@ -1,4 +1,5 @@
 using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Xunit;
 
 namespace JobsJobsJobs.Tests;

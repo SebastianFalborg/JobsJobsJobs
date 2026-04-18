@@ -7,7 +7,7 @@ using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Core.Sync;
 using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
-namespace JobsJobsJobs.BackgroundJobs;
+namespace JobsJobsJobs.Core.BackgroundJobs;
 
 internal sealed class BackgroundJobRunExecutionContext
 {
@@ -314,4 +314,28 @@ public interface IBackgroundJobRunLogWriter<TJob>
     public void Warning(TJob job, string message);
 
     public void Error(TJob job, string message);
+}
+
+internal sealed class BackgroundJobRunLogWriter<TJob> : IBackgroundJobRunLogWriter<TJob>
+{
+    private readonly IBackgroundJobRunRecorder _runRecorder;
+
+    public BackgroundJobRunLogWriter(IBackgroundJobRunRecorder runRecorder) => _runRecorder = runRecorder;
+
+    public void Information(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Information, message);
+
+    public void Warning(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Warning, message);
+
+    public void Error(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Error, message);
+
+    private void WriteLog(TJob job, BackgroundJobRunLogLevel level, string message)
+    {
+        if (job is IRecurringBackgroundJob recurringJob)
+        {
+            _runRecorder.WriteLog(recurringJob, level, message);
+            return;
+        }
+
+        _runRecorder.WriteLog(typeof(TJob), level, message);
+    }
 }

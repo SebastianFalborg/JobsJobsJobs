@@ -1,3 +1,4 @@
+using JobsJobsJobs.Core.BackgroundJobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NPoco;
@@ -434,30 +435,6 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         }
 
         return messages.GetAll().Select(x => x.Message).FirstOrDefault(x => string.IsNullOrWhiteSpace(x) is false);
-    }
-}
-
-internal sealed class BackgroundJobRunLogWriter<TJob> : IBackgroundJobRunLogWriter<TJob>
-{
-    private readonly IBackgroundJobRunRecorder _runRecorder;
-
-    public BackgroundJobRunLogWriter(IBackgroundJobRunRecorder runRecorder) => _runRecorder = runRecorder;
-
-    public void Information(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Information, message);
-
-    public void Warning(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Warning, message);
-
-    public void Error(TJob job, string message) => WriteLog(job, BackgroundJobRunLogLevel.Error, message);
-
-    private void WriteLog(TJob job, BackgroundJobRunLogLevel level, string message)
-    {
-        if (job is IRecurringBackgroundJob recurringJob)
-        {
-            _runRecorder.WriteLog(recurringJob, level, message);
-            return;
-        }
-
-        _runRecorder.WriteLog(typeof(TJob), level, message);
     }
 }
 

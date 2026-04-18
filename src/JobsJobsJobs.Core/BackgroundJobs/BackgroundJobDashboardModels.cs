@@ -2,7 +2,7 @@ using System;
 using Umbraco.Cms.Core.Sync;
 using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
-namespace JobsJobsJobs.BackgroundJobs;
+namespace JobsJobsJobs.Core.BackgroundJobs;
 
 public class BackgroundJobDashboardOptions
 {
@@ -120,14 +120,13 @@ internal static class BackgroundJobDashboardNaming
 
     internal static bool IsUmbracoJob(IRecurringBackgroundJob job) => IsUmbracoJob(job.GetType());
 
-    internal static bool IsUmbracoJob(Type jobType)
-        => GetJobType(jobType).Namespace?.StartsWith("Umbraco.", StringComparison.Ordinal) is true;
+    internal static bool IsUmbracoJob(Type jobType) => GetJobType(jobType).Namespace?.StartsWith("Umbraco.", StringComparison.Ordinal) is true;
 
-    internal static bool ShouldInclude(IRecurringBackgroundJob job, BackgroundJobDashboardOptions options)
-        => options.IncludeUmbracoJobs || IsUmbracoJob(job) is false;
+    internal static bool ShouldInclude(IRecurringBackgroundJob job, BackgroundJobDashboardOptions options) =>
+        options.IncludeUmbracoJobs || IsUmbracoJob(job) is false;
 
-    internal static bool ShouldInclude(string alias, BackgroundJobDashboardOptions options)
-        => options.IncludeUmbracoJobs || alias.StartsWith("Umbraco.", StringComparison.Ordinal) is false;
+    internal static bool ShouldInclude(string alias, BackgroundJobDashboardOptions options) =>
+        options.IncludeUmbracoJobs || alias.StartsWith("Umbraco.", StringComparison.Ordinal) is false;
 
     internal static bool SupportsStop(IRecurringBackgroundJob job) => job is IStoppableRecurringBackgroundJob;
 
@@ -146,9 +145,7 @@ internal static class BackgroundJobDashboardNaming
             return jobType;
         }
 
-        Type genericTypeDefinition = jobType.GetGenericTypeDefinition();
-        if (genericTypeDefinition == typeof(CronRecurringBackgroundJobAdapter<>)
-            || genericTypeDefinition == typeof(StoppableCronRecurringBackgroundJobAdapter<>))
+        if (typeof(ICronRecurringBackgroundJobAdapter).IsAssignableFrom(jobType))
         {
             return jobType.GetGenericArguments()[0];
         }

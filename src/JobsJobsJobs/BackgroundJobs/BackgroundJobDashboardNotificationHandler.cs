@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Infrastructure.Notifications;
 

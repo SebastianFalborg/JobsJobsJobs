@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Asp.Versioning;
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 

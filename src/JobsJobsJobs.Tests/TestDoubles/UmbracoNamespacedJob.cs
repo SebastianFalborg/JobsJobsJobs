@@ -1,4 +1,4 @@
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 
 namespace Umbraco.Cms.JobsJobsJobs.Tests.FakeJobs;
 
