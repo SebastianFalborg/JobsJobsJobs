@@ -5,6 +5,7 @@ const BASE_PATH = "/umbraco/jobsjobsjobs/api/v1/background-jobs";
 export interface BackgroundJobsApiOptions {
   getCredentials: () => RequestCredentials;
   getToken: () => Promise<string | undefined>;
+  refreshAuth?: () => Promise<boolean>;
 }
 
 export class BackgroundJobsApi {
@@ -41,6 +42,21 @@ export class BackgroundJobsApi {
   }
 
   private async _fetch(input: RequestInfo | URL, init: RequestInit) {
+    const response = await this._dispatch(input, init);
+
+    if (response.status !== 401 || this._options.refreshAuth === undefined) {
+      return response;
+    }
+
+    const refreshed = await this._options.refreshAuth();
+    if (refreshed === false) {
+      return response;
+    }
+
+    return this._dispatch(input, init);
+  }
+
+  private async _dispatch(input: RequestInfo | URL, init: RequestInit) {
     const token = await this._options.getToken();
     if (!token) {
       throw new Error("Backoffice authentication is not ready yet.");

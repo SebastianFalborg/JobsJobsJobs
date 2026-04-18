@@ -1,5 +1,6 @@
 import { customElement, html, state } from "@umbraco-cms/backoffice/external/lit";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
+import type { UmbAuthContext } from "@umbraco-cms/backoffice/auth";
 import type { UUIButtonState } from "@umbraco-cms/backoffice/external/uui";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
@@ -32,11 +33,14 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   private _authCredentials: RequestCredentials = "include";
 
+  private _authContext?: UmbAuthContext;
+
   private _autoRefreshHandle?: number;
 
   private readonly _api = new BackgroundJobsApi({
     getCredentials: () => this._authCredentials,
     getToken: () => this._getAuthToken(),
+    refreshAuth: () => this._refreshAuth(),
   });
 
   @state()
@@ -65,6 +69,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       const config = authContext?.getOpenApiConfiguration();
+      this._authContext = authContext;
       this._authInitialized = authContext !== undefined;
       this._authToken = config?.token;
       this._authCredentials = config?.credentials ?? "include";
@@ -90,6 +95,19 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
 
     return this._authToken;
+  }
+
+  private async _refreshAuth(): Promise<boolean> {
+    if (this._authContext === undefined) {
+      return false;
+    }
+
+    try {
+      const valid = await this._authContext.validateToken();
+      return valid === true;
+    } catch {
+      return false;
+    }
   }
 
   private async _load() {
