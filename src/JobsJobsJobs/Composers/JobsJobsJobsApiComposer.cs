@@ -1,7 +1,6 @@
 using Asp.Versioning;
-using JobsJobsJobs.BackgroundJobs;
 using JobsJobsJobs.Core;
-using JobsJobsJobs.Core.BackgroundJobs;
+using JobsJobsJobs.Infrastructure.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +11,6 @@ using Umbraco.Cms.Api.Common.OpenApi;
 using Umbraco.Cms.Api.Management.OpenApi;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
-using Umbraco.Cms.Infrastructure.Notifications;
 
 namespace JobsJobsJobs.Composers;
 
@@ -20,26 +18,8 @@ public class JobsJobsJobsApiComposer : IComposer
 {
     public void Compose(IUmbracoBuilder builder)
     {
-        builder.Services.AddSingleton<IBackgroundJobRunExecutionContextAccessor, BackgroundJobRunExecutionContextAccessor>();
-        builder.Services.AddSingleton<IBackgroundJobStopCoordinator, BackgroundJobStopCoordinator>();
-        builder.Services.AddSingleton<IBackgroundJobCronScheduler, BackgroundJobCronScheduler>();
-        builder.Services.AddSingleton<IBackgroundJobCronSuppressionCoordinator, BackgroundJobCronSuppressionCoordinator>();
-        builder.Services.AddSingleton<IBackgroundJobDashboardStateStore, BackgroundJobDashboardStateStore>();
-        builder.Services.AddSingleton<IBackgroundJobDashboardService, BackgroundJobDashboardService>();
-        builder.Services.AddSingleton<IBackgroundJobManualTriggerDispatcher, BackgroundJobManualTriggerDispatcher>();
-        builder.Services.AddSingleton<IBackgroundJobStopDispatcher, BackgroundJobStopDispatcher>();
-        builder.Services.AddSingleton<BackgroundJobRunStore>();
-        builder.Services.AddSingleton<IBackgroundJobRunHistoryService>(x => x.GetRequiredService<BackgroundJobRunStore>());
-        builder.Services.AddSingleton<IBackgroundJobRunRecorder>(x => x.GetRequiredService<BackgroundJobRunStore>());
-        builder.Services.AddTransient<IBackgroundJobExecutionCancellation, BackgroundJobExecutionCancellation>();
-        builder.Services.AddTransient(typeof(IBackgroundJobRunLogWriter<>), typeof(BackgroundJobRunLogWriter<>));
-
-        builder.AddNotificationAsyncHandler<RecurringBackgroundJobExecutingNotification, BackgroundJobDashboardNotificationHandler>();
-        builder.AddNotificationAsyncHandler<RecurringBackgroundJobExecutedNotification, BackgroundJobDashboardNotificationHandler>();
-        builder.AddNotificationAsyncHandler<RecurringBackgroundJobFailedNotification, BackgroundJobDashboardNotificationHandler>();
-        builder.AddNotificationAsyncHandler<RecurringBackgroundJobIgnoredNotification, BackgroundJobDashboardNotificationHandler>();
-        builder.AddNotificationAsyncHandler<Umbraco.Cms.Core.Notifications.UmbracoApplicationStartingNotification, BackgroundJobRunMigrationHandler>();
-        builder.AddNotificationAsyncHandler<Umbraco.Cms.Core.Notifications.UmbracoApplicationStartedNotification, BackgroundJobRunMigrationHandler>();
+        builder.AddJobsJobsJobsCore();
+        builder.AddJobsJobsJobsInfrastructure();
 
         builder.Services.AddSingleton<IOperationIdHandler, CustomOperationHandler>();
 
@@ -54,17 +34,20 @@ public class JobsJobsJobsApiComposer : IComposer
             // Configure the Swagger generation options
             // Add in a new Swagger API document solely for our own package that can be browsed via Swagger UI
             // Along with having a generated swagger JSON file that we can use to auto generate a TypeScript client
-            opt.SwaggerDoc(Constants.ApiName, new OpenApiInfo
-            {
-                Title = "Jobs Jobs Jobs Backoffice API",
-                Version = "1.0",
-                // Contact = new OpenApiContact
-                // {
-                //     Name = "Some Developer",
-                //     Email = "you@company.com",
-                //     Url = new Uri("https://company.com")
-                // }
-            });
+            opt.SwaggerDoc(
+                Constants.ApiName,
+                new OpenApiInfo
+                {
+                    Title = "Jobs Jobs Jobs Backoffice API",
+                    Version = "1.0",
+                    // Contact = new OpenApiContact
+                    // {
+                    //     Name = "Some Developer",
+                    //     Email = "you@company.com",
+                    //     Url = new Uri("https://company.com")
+                    // }
+                }
+            );
 
             // Enable Umbraco authentication for the "Example" Swagger document
             // PR: https://github.com/umbraco/Umbraco-CMS/pull/15699
@@ -82,13 +65,15 @@ public class JobsJobsJobsApiComposer : IComposer
     // https://docs.umbraco.com/umbraco-cms/tutorials/creating-a-backoffice-api/umbraco-schema-and-operation-ids#operation-ids
     public class CustomOperationHandler : OperationIdHandler
     {
-        public CustomOperationHandler(IOptions<ApiVersioningOptions> apiVersioningOptions) : base(apiVersioningOptions)
-        {
-        }
+        public CustomOperationHandler(IOptions<ApiVersioningOptions> apiVersioningOptions)
+            : base(apiVersioningOptions) { }
 
         protected override bool CanHandle(ApiDescription apiDescription, ControllerActionDescriptor controllerActionDescriptor)
         {
-            return controllerActionDescriptor.ControllerTypeInfo.Namespace?.StartsWith("JobsJobsJobs.Controllers", comparisonType: StringComparison.InvariantCultureIgnoreCase) is true;
+            return controllerActionDescriptor.ControllerTypeInfo.Namespace?.StartsWith(
+                    "JobsJobsJobs.Controllers",
+                    comparisonType: StringComparison.InvariantCultureIgnoreCase
+                ) is true;
         }
 
         public override string Handle(ApiDescription apiDescription) => $"{apiDescription.ActionDescriptor.RouteValues["action"]}";

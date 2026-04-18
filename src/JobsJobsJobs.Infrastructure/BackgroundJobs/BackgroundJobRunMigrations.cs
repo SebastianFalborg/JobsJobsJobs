@@ -1,6 +1,5 @@
 using System.Threading;
 using System.Threading.Tasks;
-using JobsJobsJobs.Core.BackgroundJobs;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Events;
@@ -13,7 +12,7 @@ using Umbraco.Cms.Infrastructure.Migrations;
 using Umbraco.Cms.Infrastructure.Migrations.Upgrade;
 using Umbraco.Cms.Infrastructure.Notifications;
 
-namespace JobsJobsJobs.BackgroundJobs;
+namespace JobsJobsJobs.Infrastructure.BackgroundJobs;
 
 internal sealed class BackgroundJobRunMigrationHandler
     : INotificationAsyncHandler<UmbracoApplicationStartingNotification>,

@@ -4,13 +4,13 @@ using JobsJobsJobs.Core.BackgroundJobs;
 using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Infrastructure.Notifications;
 
-namespace JobsJobsJobs.BackgroundJobs;
+namespace JobsJobsJobs.Infrastructure.BackgroundJobs;
 
-internal sealed class BackgroundJobDashboardNotificationHandler :
-    INotificationAsyncHandler<RecurringBackgroundJobExecutingNotification>,
-    INotificationAsyncHandler<RecurringBackgroundJobExecutedNotification>,
-    INotificationAsyncHandler<RecurringBackgroundJobFailedNotification>,
-    INotificationAsyncHandler<RecurringBackgroundJobIgnoredNotification>
+internal sealed class BackgroundJobDashboardNotificationHandler
+    : INotificationAsyncHandler<RecurringBackgroundJobExecutingNotification>,
+        INotificationAsyncHandler<RecurringBackgroundJobExecutedNotification>,
+        INotificationAsyncHandler<RecurringBackgroundJobFailedNotification>,
+        INotificationAsyncHandler<RecurringBackgroundJobIgnoredNotification>
 {
     private readonly IBackgroundJobRunExecutionContextAccessor _runExecutionContextAccessor;
     private readonly IBackgroundJobDashboardStateStore _stateStore;
@@ -23,7 +23,8 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
         IBackgroundJobRunRecorder runRecorder,
         IBackgroundJobRunExecutionContextAccessor runExecutionContextAccessor,
         IBackgroundJobStopCoordinator stopCoordinator,
-        IBackgroundJobCronSuppressionCoordinator cronSuppressionCoordinator)
+        IBackgroundJobCronSuppressionCoordinator cronSuppressionCoordinator
+    )
     {
         _stateStore = stateStore;
         _runRecorder = runRecorder;
@@ -36,8 +37,7 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
     {
         BackgroundJobRunExecutionContext context = _runExecutionContextAccessor.Create(notification.Job, BackgroundJobRunTrigger.Automatic);
 
-        if (notification.Job is ICronRecurringBackgroundJobAdapter cronJob
-            && cronJob.ShouldExecute(context) is false)
+        if (notification.Job is ICronRecurringBackgroundJobAdapter cronJob && cronJob.ShouldExecute(context) is false)
         {
             _cronSuppressionCoordinator.Suppress(context.JobAlias);
             context.ShouldExecute = false;
@@ -69,7 +69,8 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
                     {
                         [BackgroundJobDashboardStateKeys.ErrorMessage] = ex.Message,
                         [BackgroundJobDashboardStateKeys.Message] = "Automatic run failed during startup.",
-                    });
+                    }
+                );
             }
 
             _stateStore.AbortExecution(notification.Job);
@@ -98,9 +99,8 @@ internal sealed class BackgroundJobDashboardNotificationHandler :
 
         try
         {
-            var status = context is not null && _stopCoordinator.IsStopRequested(context.RunId)
-                ? BackgroundJobStatus.Stopped
-                : BackgroundJobStatus.Succeeded;
+            var status =
+                context is not null && _stopCoordinator.IsStopRequested(context.RunId) ? BackgroundJobStatus.Stopped : BackgroundJobStatus.Succeeded;
             _stateStore.MarkCompleted(notification.Job, status, notification.Messages, notification.State);
             _runRecorder.MarkCompleted(notification.Job, status, notification.Messages, notification.State);
         }

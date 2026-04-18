@@ -1,5 +1,5 @@
-using JobsJobsJobs.BackgroundJobs;
 using JobsJobsJobs.Core.BackgroundJobs;
+using JobsJobsJobs.Infrastructure.BackgroundJobs;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
