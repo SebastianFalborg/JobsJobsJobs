@@ -2,10 +2,18 @@ import type { BackgroundJobDashboardCollectionResponseModel } from "./types.js";
 
 const BASE_PATH = "/umbraco/jobsjobsjobs/api/v1/background-jobs";
 
+export class BackgroundJobsUnauthorizedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BackgroundJobsUnauthorizedError";
+  }
+}
+
 export interface BackgroundJobsApiOptions {
   getCredentials: () => RequestCredentials;
   getToken: () => Promise<string | undefined>;
   refreshAuth?: () => Promise<boolean>;
+  onUnauthorized?: () => void;
 }
 
 export class BackgroundJobsApi {
@@ -17,28 +25,33 @@ export class BackgroundJobsApi {
 
   async list(): Promise<BackgroundJobDashboardCollectionResponseModel> {
     const response = await this._fetch(BASE_PATH, { method: "GET" });
-
-    if (!response.ok) {
-      throw new Error(await readProblem(response));
-    }
-
+    await this._assertOk(response);
     return (await response.json()) as BackgroundJobDashboardCollectionResponseModel;
   }
 
   async run(alias: string): Promise<void> {
     const response = await this._fetch(`${BASE_PATH}/run/${encodeURIComponent(alias)}`, { method: "POST" });
-
-    if (!response.ok) {
-      throw new Error(await readProblem(response));
-    }
+    await this._assertOk(response);
   }
 
   async stop(alias: string): Promise<void> {
     const response = await this._fetch(`${BASE_PATH}/stop/${encodeURIComponent(alias)}`, { method: "POST" });
+    await this._assertOk(response);
+  }
 
-    if (!response.ok) {
-      throw new Error(await readProblem(response));
+  private async _assertOk(response: Response) {
+    if (response.ok) {
+      return;
     }
+
+    const message = await readProblem(response);
+
+    if (response.status === 401) {
+      this._options.onUnauthorized?.();
+      throw new BackgroundJobsUnauthorizedError(message);
+    }
+
+    throw new Error(message);
   }
 
   private async _fetch(input: RequestInfo | URL, init: RequestInit) {

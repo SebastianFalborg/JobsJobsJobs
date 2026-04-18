@@ -4,7 +4,7 @@ import type { UmbAuthContext } from "@umbraco-cms/backoffice/auth";
 import type { UUIButtonState } from "@umbraco-cms/backoffice/external/uui";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-import { BackgroundJobsApi } from "./background-jobs/api.js";
+import { BackgroundJobsApi, BackgroundJobsUnauthorizedError } from "./background-jobs/api.js";
 import {
   formatDate,
   formatDuration,
@@ -41,6 +41,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     getCredentials: () => this._authCredentials,
     getToken: () => this._getAuthToken(),
     refreshAuth: () => this._refreshAuth(),
+    onUnauthorized: () => this._onUnauthorized(),
   });
 
   @state()
@@ -110,6 +111,11 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     }
   }
 
+  private _onUnauthorized() {
+    this._stopAutoRefresh();
+    this._authContext?.timeOut();
+  }
+
   private async _load() {
     if (this._authInitialized === false) {
       return;
@@ -134,7 +140,11 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         this._stopAutoRefresh();
       }
     } catch (error) {
-      this._errorMessage = error instanceof Error ? error.message : "Could not load background jobs.";
+      if (error instanceof BackgroundJobsUnauthorizedError) {
+        this._errorMessage = "Your session has expired. Please sign in again.";
+      } else {
+        this._errorMessage = error instanceof Error ? error.message : "Could not load background jobs.";
+      }
     } finally {
       this._isLoading = false;
     }
