@@ -4,6 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
+    <!-- Embed the Core and Infrastructure assemblies into the single JobsJobsJobs nupkg so consumers do not see them as separate package dependencies. -->
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeReferencedProjectsInPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -37,8 +39,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\JobsJobsJobs.Core\JobsJobsJobs.Core.csproj" />
-    <ProjectReference Include="..\JobsJobsJobs.Infrastructure\JobsJobsJobs.Infrastructure.csproj" />
+    <ProjectReference Include="..\JobsJobsJobs.Core\JobsJobsJobs.Core.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\JobsJobsJobs.Infrastructure\JobsJobsJobs.Infrastructure.csproj" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -77,5 +79,17 @@
     Outputs="wwwroot\App_Plugins\JobsJobsJobs\jobs-jobs-jobs.js"
   >
     <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\$(ClientAppDirectory)" />
+  </Target>
+
+  <Target Name="IncludeReferencedProjectsInPackage">
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(OutputPath)JobsJobsJobs.Core.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)JobsJobsJobs.Core.pdb" Condition="Exists('$(OutputPath)JobsJobsJobs.Core.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)JobsJobsJobs.Infrastructure.dll" />
+      <BuildOutputInPackage
+        Include="$(OutputPath)JobsJobsJobs.Infrastructure.pdb"
+        Condition="Exists('$(OutputPath)JobsJobsJobs.Infrastructure.pdb')"
+      />
+    </ItemGroup>
   </Target>
 </Project>
