@@ -78,7 +78,12 @@ This package does not try to replace every advanced background processing scenar
 ## Repository structure
 
 ```text
-src/JobsJobsJobs                Package project
+src/JobsJobsJobs.Core           Pure domain types, interfaces, and in-memory orchestration
+src/JobsJobsJobs.Infrastructure Umbraco/NPoco adapters, persistence, migrations, and DI wiring
+src/JobsJobsJobs                Presentation: controllers, composer, client assets, nupkg root
+src/JobsJobsJobs.Tests          xUnit tests
 src/JobsJobsJobs.TestSite       Local test site
 docs/README_nuget.md            Package install and usage guide
 ```
+
+The three library projects follow a pragmatic onion layering. The nupkg produced from `src/JobsJobsJobs` embeds both `JobsJobsJobs.Core.dll` and `JobsJobsJobs.Infrastructure.dll` so consumers only ever install a single package.

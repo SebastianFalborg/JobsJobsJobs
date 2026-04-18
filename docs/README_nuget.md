@@ -1,5 +1,5 @@
-# Jobs Jobs Jobs 
- 
+# Jobs Jobs Jobs
+
 [![Downloads](https://img.shields.io/nuget/dt/Umbraco.Community.JobsJobsJobs?color=cc9900)](https://www.nuget.org/packages/Umbraco.Community.JobsJobsJobs/)
 [![NuGet](https://img.shields.io/nuget/vpre/Umbraco.Community.JobsJobsJobs?color=0273B3)](https://www.nuget.org/packages/Umbraco.Community.JobsJobsJobs)
 [![GitHub license](https://img.shields.io/github/license/SebastianFalborg/JobsJobsJobs?color=8AB803)](https://github.com/SebastianFalborg/JobsJobsJobs/blob/main/LICENSE)
@@ -67,7 +67,7 @@ internal sealed class MyFirstBackgroundJob : RecurringBackgroundJobBase
 Register it in a composer:
 
 ```csharp
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Infrastructure.BackgroundJobs;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 
@@ -98,14 +98,14 @@ CRON jobs are registered through Jobs Jobs Jobs, but they still run on top of Um
 
 Make sure the composer imports:
 
-- `JobsJobsJobs.BackgroundJobs`
+- `JobsJobsJobs.Infrastructure.BackgroundJobs`
 
 Otherwise you can get `CS1061: 'IUmbracoBuilder' does not contain a definition for 'AddCronBackgroundJob'` even when the package is installed correctly.
 
 ```csharp
 using System;
 using System.Threading.Tasks;
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Umbraco.Cms.Core.Sync;
 
 namespace MyUmbracoSite;
@@ -128,7 +128,7 @@ internal sealed class MyCronBackgroundJob : CronBackgroundJobBase
 Register it in a composer:
 
 ```csharp
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Infrastructure.BackgroundJobs;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 
@@ -146,7 +146,7 @@ internal sealed class MyCronBackgroundJobsComposer : IComposer
 If your job should also support stop requests, implement `IStoppableCronBackgroundJob` on a `CronBackgroundJobBase` job and still register it with `AddCronBackgroundJob<TJob>()`:
 
 ```csharp
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Infrastructure.BackgroundJobs;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 
@@ -200,7 +200,7 @@ By default, the dashboard hides Umbraco's own recurring jobs so the list stays f
 If you want to include Umbraco jobs in the dashboard as well, configure the package options in a composer:
 
 ```csharp
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 
@@ -229,10 +229,9 @@ If you want your own job to write detailed run logs to the dashboard, inject `IB
 ```csharp
 using System;
 using System.Threading.Tasks;
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core.Sync;
-using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace MyUmbracoSite;
 
@@ -294,9 +293,8 @@ For a stoppable recurring job, implement `IStoppableRecurringBackgroundJob` on t
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using JobsJobsJobs.BackgroundJobs;
+using JobsJobsJobs.Core.BackgroundJobs;
 using Umbraco.Cms.Core.Sync;
-using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace MyUmbracoSite;
 
