@@ -29,7 +29,9 @@
 
   <ItemGroup>
     <PackageReference Include="Cronos" Version="0.11.1" />
-    <PackageReference Include="MimeKit" Version="4.15.1" />
+    <!-- Override vulnerable transitives (GHSA-g7hc-96xr-gvvx on MimeKit, GHSA-9j88-vvj5-vhgr on MailKit). Remove once Umbraco pulls in patched versions. -->
+    <PackageReference Include="MimeKit" Version="4.16.0" />
+    <PackageReference Include="MailKit" Version="4.16.0" />
     <PackageReference Include="Umbraco.Cms.Web.Website" Version="17.2.2" />
     <PackageReference Include="Umbraco.Cms.Web.Common" Version="17.2.2" />
     <PackageReference Include="Umbraco.Cms.Api.Common" Version="17.2.2" />

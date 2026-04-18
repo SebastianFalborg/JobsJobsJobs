@@ -8,8 +8,9 @@
 
   <ItemGroup>
     <PackageReference Include="Umbraco.Cms.Infrastructure" Version="17.2.2" />
-    <!-- Override vulnerable transitive (GHSA-g7hc-96xr-gvvx) from Umbraco.Cms.Infrastructure. Remove once Umbraco pulls in a patched version. -->
-    <PackageReference Include="MimeKit" Version="4.15.1" />
+    <!-- Override vulnerable transitives (GHSA-g7hc-96xr-gvvx on MimeKit, GHSA-9j88-vvj5-vhgr on MailKit) from Umbraco.Cms.Infrastructure. Remove once Umbraco pulls in patched versions. -->
+    <PackageReference Include="MimeKit" Version="4.16.0" />
+    <PackageReference Include="MailKit" Version="4.16.0" />
   </ItemGroup>
 
   <ItemGroup>
