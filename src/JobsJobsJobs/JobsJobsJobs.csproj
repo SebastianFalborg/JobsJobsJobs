@@ -20,7 +20,7 @@
     <PackageProjectUrl>https://github.com/SebastianFalborg/JobsJobsJobs</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SebastianFalborg/JobsJobsJobs</RepositoryUrl>
     <PackageReadmeFile>README_nuget.md</PackageReadmeFile>
-    <PackageReleaseNotes>Improves dashboard UX, persisted run history hydration, stop support, concurrency handling, and adds opt-in CRON scheduling on top of Umbraco recurring jobs.</PackageReleaseNotes>
+    <PackageReleaseNotes>Internal refactor to Core / Infrastructure / Presentation layers (still a single nupkg). Dashboard automatically refreshes the backoffice token on 401 and surfaces the session-expired modal when refresh fails, instead of silently flooding the server with stale tokens. Security: override MimeKit and MailKit to 4.16.0 to resolve GHSA-g7hc-96xr-gvvx and GHSA-9j88-vvj5-vhgr pulled in via Umbraco.</PackageReleaseNotes>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon></PackageIcon>
