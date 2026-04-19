@@ -14,16 +14,19 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
     private readonly IBackgroundJobDashboardService _backgroundJobDashboardService;
     private readonly IBackgroundJobManualTriggerDispatcher _backgroundJobManualTriggerDispatcher;
     private readonly IBackgroundJobStopDispatcher _backgroundJobStopDispatcher;
+    private readonly IBackgroundJobRunHistoryService _runHistoryService;
 
     public BackgroundJobsController(
         IBackgroundJobDashboardService backgroundJobDashboardService,
         IBackgroundJobManualTriggerDispatcher backgroundJobManualTriggerDispatcher,
-        IBackgroundJobStopDispatcher backgroundJobStopDispatcher
+        IBackgroundJobStopDispatcher backgroundJobStopDispatcher,
+        IBackgroundJobRunHistoryService runHistoryService
     )
     {
         _backgroundJobDashboardService = backgroundJobDashboardService;
         _backgroundJobManualTriggerDispatcher = backgroundJobManualTriggerDispatcher;
         _backgroundJobStopDispatcher = backgroundJobStopDispatcher;
+        _runHistoryService = runHistoryService;
     }
 
     [HttpGet]
@@ -134,6 +137,30 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
             BackgroundJobStopOperationStatus.AlreadyRequested => Conflict(CreateProblemDetails(StatusCodes.Status409Conflict, result.Message)),
             _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(StatusCodes.Status500InternalServerError, result.Message)),
         };
+    }
+
+    [HttpGet("runs/{runId:guid}/logs")]
+    [ProducesResponseType(typeof(BackgroundJobRunLogsResponseModel), StatusCodes.Status200OK)]
+    public ActionResult<BackgroundJobRunLogsResponseModel> GetRunLogs(System.Guid runId)
+    {
+        var logs = _runHistoryService
+            .GetRunLogs(runId)
+            .Select(log => new BackgroundJobDashboardRunLogResponseModel
+            {
+                LoggedAt = log.LoggedAt,
+                Level = log.Level,
+                Message = log.Message,
+            })
+            .ToArray();
+
+        return Ok(
+            new BackgroundJobRunLogsResponseModel
+            {
+                RunId = runId,
+                Logs = logs,
+                Total = logs.Length,
+            }
+        );
     }
 
     private static ProblemDetails CreateProblemDetails(int statusCode, string? detail) =>

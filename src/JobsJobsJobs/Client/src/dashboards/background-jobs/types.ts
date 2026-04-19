@@ -48,4 +48,10 @@ export interface BackgroundJobDashboardCollectionResponseModel {
   items: Array<BackgroundJobDashboardItem>;
 }
 
+export interface BackgroundJobRunLogsResponseModel {
+  runId: string;
+  total: number;
+  logs: Array<BackgroundJobRunLogEntry>;
+}
+
 export type BackgroundJobFilter = "all" | "running" | "failed" | "succeeded" | "idle";

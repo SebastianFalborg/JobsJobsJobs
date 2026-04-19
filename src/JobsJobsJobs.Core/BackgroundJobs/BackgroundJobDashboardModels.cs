@@ -4,6 +4,8 @@ using Umbraco.Cms.Infrastructure.BackgroundJobs;
 
 namespace JobsJobsJobs.Core.BackgroundJobs;
 
+public interface IInternalBackgroundJob { }
+
 public class BackgroundJobDashboardOptions
 {
     public bool IncludeUmbracoJobs { get; set; }
@@ -11,6 +13,21 @@ public class BackgroundJobDashboardOptions
     public bool MirrorBackgroundJobLogsToUmbracoLog { get; set; }
 
     public bool DisablePersistence { get; set; }
+
+    public RunHistoryRetentionOptions RunHistoryRetention { get; set; } = new();
+}
+
+public class RunHistoryRetentionOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    public int MaxRunsPerJob { get; set; } = 100;
+
+    public TimeSpan MaxAge { get; set; } = TimeSpan.FromDays(30);
+
+    public TimeSpan SweepInterval { get; set; } = TimeSpan.FromHours(1);
+
+    public int DeleteBatchSize { get; set; } = 500;
 }
 
 public static class BackgroundJobDashboardStateKeys
@@ -122,8 +139,15 @@ internal static class BackgroundJobDashboardNaming
 
     internal static bool IsUmbracoJob(Type jobType) => GetJobType(jobType).Namespace?.StartsWith("Umbraco.", StringComparison.Ordinal) is true;
 
-    internal static bool ShouldInclude(IRecurringBackgroundJob job, BackgroundJobDashboardOptions options) =>
-        options.IncludeUmbracoJobs || IsUmbracoJob(job) is false;
+    internal static bool ShouldInclude(IRecurringBackgroundJob job, BackgroundJobDashboardOptions options)
+    {
+        if (job is IInternalBackgroundJob)
+        {
+            return false;
+        }
+
+        return options.IncludeUmbracoJobs || IsUmbracoJob(job) is false;
+    }
 
     internal static bool ShouldInclude(string alias, BackgroundJobDashboardOptions options) =>
         options.IncludeUmbracoJobs || alias.StartsWith("Umbraco.", StringComparison.Ordinal) is false;

@@ -178,6 +178,21 @@ public class BackgroundJobDashboardStateStoreTests
         Assert.Single(store.GetAll());
     }
 
+    [Fact]
+    public void Constructor_WhenJobImplementsIInternalBackgroundJob_AlwaysOmitsIt()
+    {
+        BackgroundJobDashboardStateStore store = CreateStore(new[] { (IRecurringBackgroundJob)new InternalJob() }, includeUmbracoJobs: true);
+
+        Assert.Empty(store.GetAll());
+    }
+
+    private sealed class InternalJob : RecurringBackgroundJobBase, IInternalBackgroundJob
+    {
+        public override TimeSpan Period => TimeSpan.FromMinutes(1);
+
+        public override Task RunJobAsync() => Task.CompletedTask;
+    }
+
     private static BackgroundJobDashboardStateStore CreateStore(params IRecurringBackgroundJob[] jobs) =>
         CreateStore(jobs, includeUmbracoJobs: false);
 

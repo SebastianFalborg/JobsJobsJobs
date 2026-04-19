@@ -29,6 +29,7 @@ public static class JobsJobsJobsBuilderExtensions
         builder.Services.AddSingleton<BackgroundJobRunStore>();
         builder.Services.AddSingleton<IBackgroundJobRunHistoryService>(x => x.GetRequiredService<BackgroundJobRunStore>());
         builder.Services.AddSingleton<IBackgroundJobRunRecorder>(x => x.GetRequiredService<BackgroundJobRunStore>());
+        builder.Services.AddSingleton<IBackgroundJobRunRetentionService, BackgroundJobRunRetentionService>();
 
         builder.AddNotificationAsyncHandler<RecurringBackgroundJobExecutingNotification, BackgroundJobDashboardNotificationHandler>();
         builder.AddNotificationAsyncHandler<RecurringBackgroundJobExecutedNotification, BackgroundJobDashboardNotificationHandler>();
@@ -36,6 +37,8 @@ public static class JobsJobsJobsBuilderExtensions
         builder.AddNotificationAsyncHandler<RecurringBackgroundJobIgnoredNotification, BackgroundJobDashboardNotificationHandler>();
         builder.AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, BackgroundJobRunMigrationHandler>();
         builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, BackgroundJobRunMigrationHandler>();
+
+        builder.AddRecurringBackgroundJob<BackgroundJobRunHistoryCleanupJob>();
 
         return builder;
     }

@@ -4,7 +4,7 @@ import type { UmbAuthContext } from "@umbraco-cms/backoffice/auth";
 import type { UUIButtonState } from "@umbraco-cms/backoffice/external/uui";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-import { BackgroundJobsApi, BackgroundJobsUnauthorizedError } from "./background-jobs/api.js";
+import { BackgroundJobsApi, BackgroundJobsServerError, BackgroundJobsUnauthorizedError } from "./background-jobs/api.js";
 import {
   formatDate,
   formatDuration,
@@ -20,12 +20,25 @@ import {
 import { backgroundJobsDashboardStyles } from "./background-jobs/styles.js";
 import type {
   BackgroundJobDashboardItem,
+  BackgroundJobDashboardRun,
   BackgroundJobFilter,
+  BackgroundJobRunLogEntry,
 } from "./background-jobs/types.js";
+
+interface RunLogsState {
+  loading: boolean;
+  loaded?: boolean;
+  logs?: Array<BackgroundJobRunLogEntry>;
+  error?: string;
+}
 
 @customElement("jobs-jobs-jobs-background-jobs-dashboard")
 export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   private static readonly _autoRefreshIntervalMs = 5000;
+
+  private static readonly _consecutiveServerErrorLimit = 3;
+
+  private _consecutiveServerErrors = 0;
 
   private _authToken?: string | (() => Promise<string>);
 
@@ -64,6 +77,9 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   @state()
   private _statusFilter: BackgroundJobFilter = "all";
+
+  @state()
+  private _runLogsState: Record<string, RunLogsState> = {};
 
   constructor() {
     super();
@@ -133,6 +149,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     try {
       const data = await this._api.list();
       this._items = data.items ?? [];
+      this._consecutiveServerErrors = 0;
 
       if (this._items.length > 0) {
         this._startAutoRefresh();
@@ -142,6 +159,14 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     } catch (error) {
       if (error instanceof BackgroundJobsUnauthorizedError) {
         this._errorMessage = "Your session has expired. Please sign in again.";
+      } else if (error instanceof BackgroundJobsServerError) {
+        this._consecutiveServerErrors += 1;
+        if (this._consecutiveServerErrors >= JobsJobsJobsBackgroundJobsDashboardElement._consecutiveServerErrorLimit) {
+          this._stopAutoRefresh();
+          this._errorMessage = `The server keeps returning errors (status ${error.status}). Auto-refresh is paused. Click Refresh to try again.`;
+        } else {
+          this._errorMessage = error.message;
+        }
       } else {
         this._errorMessage = error instanceof Error ? error.message : "Could not load background jobs.";
       }
@@ -151,6 +176,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   }
 
   private _reload = async () => {
+    this._consecutiveServerErrors = 0;
     this._reloadState = "waiting";
     await this._load();
     this._reloadState = this._errorMessage ? "failed" : "success";
@@ -205,6 +231,41 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       this._errorMessage = error instanceof Error ? error.message : `Could not stop ${alias}.`;
     }
   }
+
+  private async _loadRunLogs(runId: string) {
+    const existing = this._runLogsState[runId];
+    if (existing?.loading || existing?.loaded) {
+      return;
+    }
+
+    this._runLogsState = { ...this._runLogsState, [runId]: { loading: true } };
+
+    try {
+      const result = await this._api.getRunLogs(runId);
+      this._runLogsState = {
+        ...this._runLogsState,
+        [runId]: { loading: false, loaded: true, logs: result.logs ?? [] },
+      };
+    } catch (error) {
+      const message =
+        error instanceof BackgroundJobsUnauthorizedError
+          ? "Your session has expired. Please sign in again."
+          : error instanceof Error
+            ? error.message
+            : "Could not load run logs.";
+      this._runLogsState = {
+        ...this._runLogsState,
+        [runId]: { loading: false, loaded: false, error: message },
+      };
+    }
+  }
+
+  private _onRunLogsToggle = (runId: string) => (event: Event) => {
+    const details = event.currentTarget as HTMLDetailsElement;
+    if (details.open) {
+      void this._loadRunLogs(runId);
+    }
+  };
 
   private _matchesFilter(item: BackgroundJobDashboardItem) {
     switch (this._statusFilter) {
@@ -396,26 +457,77 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         </summary>
         <div class="persisted-run-body">
           <ul class="recent-run-list">
-            ${runs.map(
-              (run) => html`
-                <li class="recent-run-item">
-                  <div class="recent-run-main">
-                    <span class=${getStatusClassFromValue(run.status)}>${run.status}</span>
-                    <span>${formatDate(run.startedAt)}</span>
-                    <span class="muted">${run.trigger}</span>
-                    <span class="muted">${formatDuration(run.duration)}</span>
-                  </div>
-                  ${run.error
-                    ? html`<div class="recent-run-message"><strong>Error:</strong> ${run.error}</div>`
-                    : run.message
-                      ? html`<div class="recent-run-message"><strong>Message:</strong> ${run.message}</div>`
-                      : ""}
-                </li>
-              `,
-            )}
+            ${runs.map((run) => this._renderRecentRunItem(run))}
           </ul>
         </div>
       </details>
+    `;
+  }
+
+  private _renderRecentRunItem(run: BackgroundJobDashboardRun) {
+    return html`
+      <li class="recent-run-item">
+        <div class="recent-run-main">
+          <span class=${getStatusClassFromValue(run.status)}>${run.status}</span>
+          <span>${formatDate(run.startedAt)}</span>
+          <span class="muted">${run.trigger}</span>
+          <span class="muted">${formatDuration(run.duration)}</span>
+        </div>
+        ${run.error
+          ? html`<div class="recent-run-message"><strong>Error:</strong> ${run.error}</div>`
+          : run.message
+            ? html`<div class="recent-run-message"><strong>Message:</strong> ${run.message}</div>`
+            : ""}
+        <details class="persisted-run" @toggle=${this._onRunLogsToggle(run.id)}>
+          <summary class="persisted-run-toggle">
+            <span class="persisted-run-heading">
+              <span class="persisted-run-indicator" aria-hidden="true">
+                <span class="persisted-run-chevron">▸</span>
+                <span class="muted">Show logs</span>
+              </span>
+            </span>
+          </summary>
+          <div class="persisted-run-body">${this._renderRunLogs(run.id)}</div>
+        </details>
+      </li>
+    `;
+  }
+
+  private _renderRunLogs(runId: string) {
+    const state = this._runLogsState[runId];
+
+    if (state?.loading) {
+      return html`<div class="muted">Loading logs…</div>`;
+    }
+
+    if (state?.error) {
+      return html`<div class="error">${state.error}</div>`;
+    }
+
+    const logs = state?.logs ?? [];
+
+    if (state?.loaded && logs.length === 0) {
+      return html`<div class="muted">No log lines for this run.</div>`;
+    }
+
+    if (logs.length === 0) {
+      return "";
+    }
+
+    return html`
+      <ul class="log-list">
+        ${logs.map(
+          (log) => html`
+            <li class="log-item">
+              <div class="log-meta">
+                <span class="log-time">${formatDate(log.loggedAt)}</span>
+                <span class=${getStatusClassFromValue(log.level)}>${log.level}</span>
+              </div>
+              <span class="log-message">${log.message}</span>
+            </li>
+          `,
+        )}
+      </ul>
     `;
   }
 

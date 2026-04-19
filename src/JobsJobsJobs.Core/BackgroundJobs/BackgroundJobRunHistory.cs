@@ -287,6 +287,8 @@ public interface IBackgroundJobRunHistoryService
         int maxRuns = 5,
         int maxLogsPerRun = 0
     );
+
+    public IReadOnlyList<BackgroundJobRunLogEntry> GetRunLogs(Guid runId);
 }
 
 public interface IBackgroundJobRunRecorder

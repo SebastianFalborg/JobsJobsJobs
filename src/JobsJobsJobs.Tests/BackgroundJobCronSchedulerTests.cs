@@ -157,6 +157,8 @@ public class BackgroundJobCronSchedulerTests
                     alias => (IReadOnlyCollection<BackgroundJobRunHistoryItem>)new[] { _runs[alias] },
                     StringComparer.OrdinalIgnoreCase
                 );
+
+        public IReadOnlyList<BackgroundJobRunLogEntry> GetRunLogs(Guid runId) => Array.Empty<BackgroundJobRunLogEntry>();
     }
 
     private sealed class TestCronJob : CronBackgroundJobBase

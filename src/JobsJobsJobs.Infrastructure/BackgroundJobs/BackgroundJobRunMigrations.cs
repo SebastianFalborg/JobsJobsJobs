@@ -81,7 +81,8 @@ internal sealed class BackgroundJobRunMigrationHandler
         {
             var migrationPlan = new MigrationPlan("JobsJobsJobs.BackgroundJobRunHistory.v4")
                 .From(string.Empty)
-                .To<CreateBackgroundJobRunTablesMigration>("background-job-run-tables-v4");
+                .To<CreateBackgroundJobRunTablesMigration>("background-job-run-tables-v4")
+                .To<AddBackgroundJobRunIndexesMigration>("background-job-run-indexes-v5");
 
             var upgrader = new Upgrader(migrationPlan);
             await upgrader.ExecuteAsync(_migrationPlanExecutor, _scopeProvider, _keyValueService);
@@ -179,6 +180,46 @@ internal sealed class CreateBackgroundJobRunTablesMigration : BackgroundJobRunTa
         if (TableExists(BackgroundJobRunLogDto.TableName) is false)
         {
             CreateRunLogTable();
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class AddBackgroundJobRunIndexesMigration : AsyncMigrationBase
+{
+    public const string RunAliasStartedAtIndexName = "IX_JobsJobsJobsBackgroundJobRun_JobAlias_StartedAt";
+    public const string RunLogRunIdIndexName = "IX_JobsJobsJobsBackgroundJobRunLog_RunId";
+
+    public AddBackgroundJobRunIndexesMigration(IMigrationContext context)
+        : base(context) { }
+
+    protected override Task MigrateAsync()
+    {
+        if (IndexExists(RunAliasStartedAtIndexName) is false)
+        {
+            Create
+                .Index(RunAliasStartedAtIndexName)
+                .OnTable(BackgroundJobRunDto.TableName)
+                .OnColumn(nameof(BackgroundJobRunDto.JobAlias))
+                .Ascending()
+                .OnColumn(nameof(BackgroundJobRunDto.StartedAt))
+                .Descending()
+                .WithOptions()
+                .NonClustered()
+                .Do();
+        }
+
+        if (IndexExists(RunLogRunIdIndexName) is false)
+        {
+            Create
+                .Index(RunLogRunIdIndexName)
+                .OnTable(BackgroundJobRunLogDto.TableName)
+                .OnColumn(nameof(BackgroundJobRunLogDto.RunId))
+                .Ascending()
+                .WithOptions()
+                .NonClustered()
+                .Do();
         }
 
         return Task.CompletedTask;

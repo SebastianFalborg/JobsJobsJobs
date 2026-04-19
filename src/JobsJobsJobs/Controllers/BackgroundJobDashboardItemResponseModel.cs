@@ -90,3 +90,12 @@ public record BackgroundJobDashboardCollectionResponseModel
 
     public IEnumerable<BackgroundJobDashboardItemResponseModel> Items { get; init; } = Array.Empty<BackgroundJobDashboardItemResponseModel>();
 }
+
+public record BackgroundJobRunLogsResponseModel
+{
+    public Guid RunId { get; init; }
+
+    public int Total { get; init; }
+
+    public IEnumerable<BackgroundJobDashboardRunLogResponseModel> Logs { get; init; } = Array.Empty<BackgroundJobDashboardRunLogResponseModel>();
+}

@@ -70,7 +70,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
     {
         var alias = BackgroundJobDashboardNaming.GetAlias(job);
         var context = _runExecutionContextAccessor.Get(job);
-        if (_options.DisablePersistence || ShouldInclude(alias) is false)
+        if (_options.DisablePersistence || ShouldInclude(job) is false)
         {
             return;
         }
@@ -159,6 +159,11 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
     public void WriteLog(IRecurringBackgroundJob job, BackgroundJobRunLogLevel level, string message)
     {
+        if (job is IInternalBackgroundJob)
+        {
+            return;
+        }
+
         var alias = BackgroundJobDashboardNaming.GetAlias(job);
         var context = _runExecutionContextAccessor.Get(job);
 
@@ -167,6 +172,11 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
 
     public void WriteLog(Type jobType, BackgroundJobRunLogLevel level, string message)
     {
+        if (typeof(IInternalBackgroundJob).IsAssignableFrom(jobType))
+        {
+            return;
+        }
+
         var alias = BackgroundJobDashboardNaming.GetAlias(jobType);
 
         WriteLogCore(alias, null, level, message);
@@ -211,6 +221,33 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         );
 
         return result;
+    }
+
+    public IReadOnlyList<BackgroundJobRunLogEntry> GetRunLogs(Guid runId)
+    {
+        var logs = Array.Empty<BackgroundJobRunLogEntry>();
+
+        TryExecuteRead(
+            "read background job run logs",
+            () =>
+            {
+                using var scope = _scopeProvider.CreateScope(autoComplete: true);
+                var rows = scope.Database.Fetch<BackgroundJobRunLogDto>(
+                    $"SELECT * FROM {BackgroundJobRunLogDto.TableName} WHERE {nameof(BackgroundJobRunLogDto.RunId)} = @0 ORDER BY {nameof(BackgroundJobRunLogDto.LoggedAt)} ASC",
+                    runId
+                );
+
+                logs = rows.Select(row => new BackgroundJobRunLogEntry
+                    {
+                        LoggedAt = row.LoggedAt,
+                        Level = row.Level,
+                        Message = row.Message,
+                    })
+                    .ToArray();
+            }
+        );
+
+        return logs;
     }
 
     public IReadOnlyDictionary<string, IReadOnlyCollection<BackgroundJobRunHistoryItem>> GetRecentRuns(

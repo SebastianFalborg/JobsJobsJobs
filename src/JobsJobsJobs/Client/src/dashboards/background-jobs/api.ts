@@ -1,4 +1,4 @@
-import type { BackgroundJobDashboardCollectionResponseModel } from "./types.js";
+import type { BackgroundJobDashboardCollectionResponseModel, BackgroundJobRunLogsResponseModel } from "./types.js";
 
 const BASE_PATH = "/umbraco/jobsjobsjobs/api/v1/background-jobs";
 
@@ -6,6 +6,16 @@ export class BackgroundJobsUnauthorizedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "BackgroundJobsUnauthorizedError";
+  }
+}
+
+export class BackgroundJobsServerError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "BackgroundJobsServerError";
+    this.status = status;
   }
 }
 
@@ -39,6 +49,12 @@ export class BackgroundJobsApi {
     await this._assertOk(response);
   }
 
+  async getRunLogs(runId: string): Promise<BackgroundJobRunLogsResponseModel> {
+    const response = await this._fetch(`${BASE_PATH}/runs/${encodeURIComponent(runId)}/logs`, { method: "GET" });
+    await this._assertOk(response);
+    return (await response.json()) as BackgroundJobRunLogsResponseModel;
+  }
+
   private async _assertOk(response: Response) {
     if (response.ok) {
       return;
@@ -49,6 +65,10 @@ export class BackgroundJobsApi {
     if (response.status === 401) {
       this._options.onUnauthorized?.();
       throw new BackgroundJobsUnauthorizedError(message);
+    }
+
+    if (response.status >= 500 && response.status <= 599) {
+      throw new BackgroundJobsServerError(response.status, message);
     }
 
     throw new Error(message);
