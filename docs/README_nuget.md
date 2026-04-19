@@ -416,6 +416,10 @@ order by r.StartedAt desc, l.LoggedAt asc;
 
 Open the Umbraco backoffice and go to `Settings -> Background Jobs`.
 
+## Known limitations
+
+Run history and logs are persisted indefinitely. The package does not prune or trim history automatically. For jobs that write many log lines per run, or run very frequently, the `JobsJobsJobsBackgroundJobRun` and `JobsJobsJobsBackgroundJobRunLog` tables will grow unbounded. If this becomes a problem, truncate the tables manually until automatic retention ships in a future release.
+
 ## Non-goals and roadmap
 
 This package is intentionally focused.
