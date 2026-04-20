@@ -1,5 +1,6 @@
 using JobsJobsJobs.Core.BackgroundJobs;
 using JobsJobsJobs.Infrastructure.BackgroundJobs;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Notifications;
@@ -9,8 +10,11 @@ namespace JobsJobsJobs.Infrastructure.DependencyInjection;
 
 public static class JobsJobsJobsBuilderExtensions
 {
+    public const string BackgroundJobDashboardConfigurationSection = "BackgroundJobDashboard";
+
     public static IUmbracoBuilder AddJobsJobsJobsCore(this IUmbracoBuilder builder)
     {
+        builder.Services.Configure<BackgroundJobDashboardOptions>(builder.Config.GetSection(BackgroundJobDashboardConfigurationSection));
         builder.Services.AddSingleton<IBackgroundJobRunExecutionContextAccessor, BackgroundJobRunExecutionContextAccessor>();
         builder.Services.AddSingleton<IBackgroundJobStopCoordinator, BackgroundJobStopCoordinator>();
         builder.Services.AddSingleton<IBackgroundJobCronScheduler, BackgroundJobCronScheduler>();

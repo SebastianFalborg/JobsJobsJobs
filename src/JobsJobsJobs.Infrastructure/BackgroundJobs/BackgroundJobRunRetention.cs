@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using JobsJobsJobs.Core.BackgroundJobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,6 +14,8 @@ internal interface IBackgroundJobRunRetentionService
 
 internal sealed class BackgroundJobRunRetentionService : IBackgroundJobRunRetentionService
 {
+    private static readonly TimeSpan s_interBatchPause = TimeSpan.FromMilliseconds(50);
+
     private readonly ILogger<BackgroundJobRunRetentionService> _logger;
     private readonly BackgroundJobDashboardOptions _options;
     private readonly IScopeProvider _scopeProvider;
@@ -45,43 +48,78 @@ internal sealed class BackgroundJobRunRetentionService : IBackgroundJobRunRetent
         var now = DateTime.UtcNow;
         var totalRunsDeleted = 0;
         var totalLogsDeleted = 0;
+        var stopwatch = Stopwatch.StartNew();
+
+        _logger.LogInformation(
+            "Background job run history retention sweep starting (MaxRunsPerJob={MaxRunsPerJob}, MaxAge={MaxAge}, BatchSize={BatchSize}).",
+            retention.MaxRunsPerJob,
+            retention.MaxAge,
+            batchSize
+        );
 
         try
         {
             var aliases = FetchDistinctAliases();
+
+            _logger.LogDebug("Retention found {AliasCount} distinct aliases in run table: [{Aliases}].", aliases.Count, string.Join(", ", aliases));
 
             foreach (var alias in aliases)
             {
                 var runs = FetchRunsForAlias(alias);
                 var idsToDelete = BackgroundJobRunRetentionPlanner.SelectRunsToDelete(runs, retention, now).ToArray();
 
+                _logger.LogDebug(
+                    "Retention scanned alias {JobAlias}: {TotalRuns} runs present, {PlannedDeletes} to delete.",
+                    alias,
+                    runs.Count,
+                    idsToDelete.Length
+                );
+
                 if (idsToDelete.Length == 0)
                 {
                     continue;
                 }
 
+                var aliasRunsDeleted = 0;
+                var aliasLogsDeleted = 0;
                 foreach (var batch in Chunk(idsToDelete, batchSize))
                 {
                     var (logs, runs2) = DeleteBatch(batch);
-                    totalLogsDeleted += logs;
-                    totalRunsDeleted += runs2;
+                    aliasLogsDeleted += logs;
+                    aliasRunsDeleted += runs2;
+
+                    Thread.Sleep(s_interBatchPause);
                 }
-            }
 
-            totalLogsDeleted += DeleteOrphanLogs(batchSize);
+                totalLogsDeleted += aliasLogsDeleted;
+                totalRunsDeleted += aliasRunsDeleted;
 
-            if (totalRunsDeleted > 0 || totalLogsDeleted > 0)
-            {
-                _logger.LogInformation(
-                    "Background job run history retention sweep completed. Deleted {RunCount} run rows and {LogCount} log rows.",
-                    totalRunsDeleted,
-                    totalLogsDeleted
+                _logger.LogDebug(
+                    "Retention pruned alias {JobAlias}: {RunCount} run rows, {LogCount} log rows.",
+                    alias,
+                    aliasRunsDeleted,
+                    aliasLogsDeleted
                 );
             }
+
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "Background job run history retention sweep completed in {ElapsedMs} ms. Deleted {RunCount} run rows and {LogCount} log rows.",
+                stopwatch.ElapsedMilliseconds,
+                totalRunsDeleted,
+                totalLogsDeleted
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Background job run history retention sweep failed. Will retry on next interval.");
+            stopwatch.Stop();
+            _logger.LogWarning(
+                ex,
+                "Background job run history retention sweep failed after {ElapsedMs} ms. Deleted {RunCount} run rows and {LogCount} log rows before failure. Will retry on next interval.",
+                stopwatch.ElapsedMilliseconds,
+                totalRunsDeleted,
+                totalLogsDeleted
+            );
         }
 
         return totalRunsDeleted;
@@ -98,14 +136,23 @@ internal sealed class BackgroundJobRunRetentionService : IBackgroundJobRunRetent
     private IReadOnlyList<BackgroundJobRunRetentionPlanner.RunSummary> FetchRunsForAlias(string alias)
     {
         using var scope = _scopeProvider.CreateScope();
-        var rows = scope.Database.Fetch<BackgroundJobRunDto>(
-            $"SELECT * FROM {BackgroundJobRunDto.TableName} "
+        var rows = scope.Database.Fetch<RunSummaryRow>(
+            $"SELECT {nameof(BackgroundJobRunDto.Id)} AS {nameof(RunSummaryRow.Id)}, "
+                + $"{nameof(BackgroundJobRunDto.StartedAt)} AS {nameof(RunSummaryRow.StartedAt)} "
+                + $"FROM {BackgroundJobRunDto.TableName} "
                 + $"WHERE {nameof(BackgroundJobRunDto.JobAlias)} = @0 "
                 + $"ORDER BY {nameof(BackgroundJobRunDto.StartedAt)} DESC",
             alias
         );
         scope.Complete();
         return rows.Select(r => new BackgroundJobRunRetentionPlanner.RunSummary(r.Id, r.StartedAt)).ToArray();
+    }
+
+    private sealed class RunSummaryRow
+    {
+        public Guid Id { get; set; }
+
+        public DateTime StartedAt { get; set; }
     }
 
     private (int LogsDeleted, int RunsDeleted) DeleteBatch(IReadOnlyCollection<Guid> runIds)
@@ -115,44 +162,20 @@ internal sealed class BackgroundJobRunRetentionService : IBackgroundJobRunRetent
             return (0, 0);
         }
 
-        var inClause = string.Join(",", runIds.Select(id => $"'{id}'"));
+        var parameters = runIds.Cast<object>().ToArray();
+        var placeholders = string.Join(",", Enumerable.Range(0, runIds.Count).Select(i => $"@{i}"));
+
         using var scope = _scopeProvider.CreateScope();
         var logs = scope.Database.Execute(
-            $"DELETE FROM {BackgroundJobRunLogDto.TableName} WHERE {nameof(BackgroundJobRunLogDto.RunId)} IN ({inClause})"
+            $"DELETE FROM {BackgroundJobRunLogDto.TableName} WHERE {nameof(BackgroundJobRunLogDto.RunId)} IN ({placeholders})",
+            parameters
         );
-        var runs = scope.Database.Execute($"DELETE FROM {BackgroundJobRunDto.TableName} WHERE {nameof(BackgroundJobRunDto.Id)} IN ({inClause})");
+        var runs = scope.Database.Execute(
+            $"DELETE FROM {BackgroundJobRunDto.TableName} WHERE {nameof(BackgroundJobRunDto.Id)} IN ({placeholders})",
+            parameters
+        );
         scope.Complete();
         return (logs, runs);
-    }
-
-    private int DeleteOrphanLogs(int batchSize)
-    {
-        using var scope = _scopeProvider.CreateScope();
-        var orphanIds = scope
-            .Database.Fetch<Guid>(
-                $"SELECT {nameof(BackgroundJobRunLogDto.Id)} FROM {BackgroundJobRunLogDto.TableName} "
-                    + $"WHERE {nameof(BackgroundJobRunLogDto.RunId)} NOT IN (SELECT {nameof(BackgroundJobRunDto.Id)} FROM {BackgroundJobRunDto.TableName})"
-            )
-            .ToArray();
-        scope.Complete();
-
-        if (orphanIds.Length == 0)
-        {
-            return 0;
-        }
-
-        var totalDeleted = 0;
-        foreach (var batch in Chunk(orphanIds, batchSize))
-        {
-            var inClause = string.Join(",", batch.Select(id => $"'{id}'"));
-            using var deleteScope = _scopeProvider.CreateScope();
-            totalDeleted += deleteScope.Database.Execute(
-                $"DELETE FROM {BackgroundJobRunLogDto.TableName} WHERE {nameof(BackgroundJobRunLogDto.Id)} IN ({inClause})"
-            );
-            deleteScope.Complete();
-        }
-
-        return totalDeleted;
     }
 
     private static IEnumerable<IReadOnlyCollection<Guid>> Chunk(IReadOnlyList<Guid> items, int batchSize)

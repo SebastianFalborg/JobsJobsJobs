@@ -27,7 +27,7 @@ public class RunHistoryRetentionOptions
 
     public TimeSpan SweepInterval { get; set; } = TimeSpan.FromHours(1);
 
-    public int DeleteBatchSize { get; set; } = 500;
+    public int DeleteBatchSize { get; set; } = 100;
 }
 
 public static class BackgroundJobDashboardStateKeys
