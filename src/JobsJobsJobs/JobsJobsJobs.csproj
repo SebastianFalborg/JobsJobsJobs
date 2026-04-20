@@ -11,7 +11,7 @@
   <PropertyGroup>
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <Title>Jobs Jobs Jobs</Title>
     <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, cooperative stop support, and opt-in CRON scheduling.</Description>
     <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs;cron;recurring-jobs</PackageTags>
@@ -20,7 +20,7 @@
     <PackageProjectUrl>https://github.com/SebastianFalborg/JobsJobsJobs</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SebastianFalborg/JobsJobsJobs</RepositoryUrl>
     <PackageReadmeFile>README_nuget.md</PackageReadmeFile>
-    <PackageReleaseNotes>Internal refactor to Core / Infrastructure / Presentation layers (still a single nupkg). Dashboard automatically refreshes the backoffice token on 401 and surfaces the session-expired modal when refresh fails, instead of silently flooding the server with stale tokens. Security: override MimeKit and MailKit to 4.16.0 to resolve GHSA-g7hc-96xr-gvvx and GHSA-9j88-vvj5-vhgr pulled in via Umbraco.</PackageReleaseNotes>
+    <PackageReleaseNotes>Behavior change: run history is now pruned automatically, keeping 100 runs per job and 30 days of history by default. Adjust or disable via BackgroundJobDashboardOptions.RunHistoryRetention. A new internal recurring cleanup job performs the sweep hourly and is hidden from the dashboard. Added indexes on the run and run-log tables to keep dashboard queries and DELETEs fast. Dashboard now lets you view the full log history for any recent run via a Show logs toggle on each row, and pauses auto-refresh after three consecutive 5xx responses so server errors stop flooding the log.</PackageReleaseNotes>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon></PackageIcon>

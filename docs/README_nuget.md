@@ -367,6 +367,14 @@ The dashboard can request stop for running jobs that explicitly opt in to cooper
 - Jobs should check for stop between meaningful work units and pass the cancellation token into cancellable async operations
 - Use `OperationCanceledException` handling only when you need extra cleanup or logging inside the job itself
 
+### Viewing logs for a run
+
+Each row in the `Recent stored runs` panel has a `Show logs` toggle. Expanding it fetches every log line captured for that specific run and lists them with timestamps and level badges. Logs are fetched on demand so opening the toggle does not affect dashboard load time.
+
+### Resilience to server errors
+
+The dashboard auto-refreshes every 5 seconds. If the server returns a 5xx response three times in a row, auto-refresh is paused and a persistent banner asks you to click `Refresh` to try again. A successful response (or a manual refresh) resets the counter.
+
 ## Database tables
 
 The package writes to these tables:
@@ -416,9 +424,35 @@ order by r.StartedAt desc, l.LoggedAt asc;
 
 Open the Umbraco backoffice and go to `Settings -> Background Jobs`.
 
-## Known limitations
+## Run history retention
 
-Run history and logs are persisted indefinitely. The package does not prune or trim history automatically. For jobs that write many log lines per run, or run very frequently, the `JobsJobsJobsBackgroundJobRun` and `JobsJobsJobsBackgroundJobRunLog` tables will grow unbounded. If this becomes a problem, truncate the tables manually until automatic retention ships in a future release.
+The package prunes old run history automatically. By default it keeps the **100 most recent runs per job** and runs up to **30 days old**, whichever is stricter. An internal recurring cleanup job runs once per hour, hidden from the dashboard.
+
+> **Behavior change from 1.4.x.** Previous versions retained run history indefinitely. Upgrading to 1.5.0 will start pruning old runs the first time the cleanup job fires. If you upgraded from 1.4.x and have a very large `JobsJobsJobsBackgroundJobRun` / `JobsJobsJobsBackgroundJobRunLog` table, the first sweep may do significant DELETE work; run it outside peak hours or disable retention temporarily and truncate the tables manually instead.
+
+Configure retention via `BackgroundJobDashboardOptions.RunHistoryRetention` in `appsettings.json` or a composer. All settings are optional and fall back to the defaults below:
+
+```json
+{
+  "BackgroundJobDashboard": {
+    "RunHistoryRetention": {
+      "Enabled": true,
+      "MaxRunsPerJob": 100,
+      "MaxAge": "30.00:00:00",
+      "SweepInterval": "01:00:00",
+      "DeleteBatchSize": 500
+    }
+  }
+}
+```
+
+- Set `Enabled: false` to turn retention off (history will grow unbounded again).
+- Set `MaxRunsPerJob: 0` to disable the count-based rule and rely only on `MaxAge`.
+- Set `MaxAge: "00:00:00"` to disable the age-based rule and rely only on `MaxRunsPerJob`.
+- `SweepInterval` is clamped to a minimum of 1 minute.
+- `DeleteBatchSize` controls how many rows are deleted per DB round-trip; lower this if you see lock contention on very large sweeps.
+
+The cleanup job itself writes no entries to the run history tables.
 
 ## Non-goals and roadmap
 
