@@ -1,4 +1,9 @@
-import type { BackgroundJobDashboardCollectionResponseModel, BackgroundJobRunLogsResponseModel } from "./types.js";
+import type {
+  BackgroundJobDashboardCollectionResponseModel,
+  BackgroundJobRunHistoryPageResponseModel,
+  BackgroundJobRunHistoryQuery,
+  BackgroundJobRunLogsResponseModel,
+} from "./types.js";
 
 const BASE_PATH = "/umbraco/jobsjobsjobs/api/v1/background-jobs";
 
@@ -53,6 +58,22 @@ export class BackgroundJobsApi {
     const response = await this._fetch(`${BASE_PATH}/runs/${encodeURIComponent(runId)}/logs`, { method: "GET" });
     await this._assertOk(response);
     return (await response.json()) as BackgroundJobRunLogsResponseModel;
+  }
+
+  async queryRuns(query: BackgroundJobRunHistoryQuery): Promise<BackgroundJobRunHistoryPageResponseModel> {
+    const params = new URLSearchParams();
+    if (query.jobAlias) params.set("jobAlias", query.jobAlias);
+    query.statuses?.forEach((status) => params.append("status", status));
+    if (query.trigger) params.set("trigger", query.trigger);
+    if (query.startedAfter) params.set("startedAfter", query.startedAfter);
+    if (query.startedBefore) params.set("startedBefore", query.startedBefore);
+    if (query.search) params.set("search", query.search);
+    params.set("page", String(query.page));
+    params.set("pageSize", String(query.pageSize));
+
+    const response = await this._fetch(`${BASE_PATH}/runs?${params.toString()}`, { method: "GET" });
+    await this._assertOk(response);
+    return (await response.json()) as BackgroundJobRunHistoryPageResponseModel;
   }
 
   private async _assertOk(response: Response) {

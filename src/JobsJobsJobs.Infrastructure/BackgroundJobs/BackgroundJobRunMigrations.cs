@@ -82,7 +82,8 @@ internal sealed class BackgroundJobRunMigrationHandler
             var migrationPlan = new MigrationPlan("JobsJobsJobs.BackgroundJobRunHistory.v4")
                 .From(string.Empty)
                 .To<CreateBackgroundJobRunTablesMigration>("background-job-run-tables-v4")
-                .To<AddBackgroundJobRunIndexesMigration>("background-job-run-indexes-v5");
+                .To<AddBackgroundJobRunIndexesMigration>("background-job-run-indexes-v5")
+                .To<AddBackgroundJobRunStartedAtIndexMigration>("background-job-run-started-at-index-v6");
 
             var upgrader = new Upgrader(migrationPlan);
             await upgrader.ExecuteAsync(_migrationPlanExecutor, _scopeProvider, _keyValueService);
@@ -217,6 +218,31 @@ internal sealed class AddBackgroundJobRunIndexesMigration : AsyncMigrationBase
                 .OnTable(BackgroundJobRunLogDto.TableName)
                 .OnColumn(nameof(BackgroundJobRunLogDto.RunId))
                 .Ascending()
+                .WithOptions()
+                .NonClustered()
+                .Do();
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class AddBackgroundJobRunStartedAtIndexMigration : AsyncMigrationBase
+{
+    public const string RunStartedAtIndexName = "IX_JobsJobsJobsBackgroundJobRun_StartedAt";
+
+    public AddBackgroundJobRunStartedAtIndexMigration(IMigrationContext context)
+        : base(context) { }
+
+    protected override Task MigrateAsync()
+    {
+        if (IndexExists(RunStartedAtIndexName) is false)
+        {
+            Create
+                .Index(RunStartedAtIndexName)
+                .OnTable(BackgroundJobRunDto.TableName)
+                .OnColumn(nameof(BackgroundJobRunDto.StartedAt))
+                .Descending()
                 .WithOptions()
                 .NonClustered()
                 .Do();

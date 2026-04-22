@@ -163,6 +163,65 @@ public class BackgroundJobsController : BackgroundJobsControllerBase
         );
     }
 
+    [HttpGet("runs")]
+    [ProducesResponseType(typeof(BackgroundJobRunHistoryPageResponseModel), StatusCodes.Status200OK)]
+    public ActionResult<BackgroundJobRunHistoryPageResponseModel> QueryRuns(
+        [FromQuery] string? jobAlias = null,
+        [FromQuery] string[]? status = null,
+        [FromQuery] string? trigger = null,
+        [FromQuery] System.DateTime? startedAfter = null,
+        [FromQuery] System.DateTime? startedBefore = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = BackgroundJobRunHistoryQuery.DefaultPageSize
+    )
+    {
+        var statuses = (status ?? Array.Empty<string>())
+            .Select(value => Enum.TryParse(value, true, out BackgroundJobStatus parsed) ? parsed : (BackgroundJobStatus?)null)
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .Distinct()
+            .ToArray();
+
+        BackgroundJobRunTrigger? parsedTrigger = Enum.TryParse(trigger, true, out BackgroundJobRunTrigger triggerValue) ? triggerValue : null;
+
+        var query = new BackgroundJobRunHistoryQuery
+        {
+            JobAlias = string.IsNullOrWhiteSpace(jobAlias) ? null : jobAlias,
+            Statuses = statuses,
+            Trigger = parsedTrigger,
+            StartedAfter = startedAfter,
+            StartedBefore = startedBefore,
+            Search = string.IsNullOrWhiteSpace(search) ? null : search,
+            Page = page,
+            PageSize = pageSize,
+        };
+
+        var result = _runHistoryService.QueryRuns(query);
+
+        return Ok(
+            new BackgroundJobRunHistoryPageResponseModel
+            {
+                Page = result.Page,
+                PageSize = result.PageSize,
+                Total = result.Total,
+                Items = result.Items.Select(item => new BackgroundJobRunHistoryItemResponseModel
+                {
+                    Id = item.Id,
+                    JobAlias = item.JobAlias,
+                    JobName = item.JobName,
+                    Trigger = item.Trigger,
+                    Status = item.Status.ToString(),
+                    StartedAt = item.StartedAt,
+                    CompletedAt = item.CompletedAt,
+                    Duration = item.Duration,
+                    Message = item.Message,
+                    Error = item.Error,
+                }),
+            }
+        );
+    }
+
     private static ProblemDetails CreateProblemDetails(int statusCode, string? detail) =>
         new()
         {

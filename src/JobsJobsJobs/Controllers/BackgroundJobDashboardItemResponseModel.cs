@@ -99,3 +99,37 @@ public record BackgroundJobRunLogsResponseModel
 
     public IEnumerable<BackgroundJobDashboardRunLogResponseModel> Logs { get; init; } = Array.Empty<BackgroundJobDashboardRunLogResponseModel>();
 }
+
+public record BackgroundJobRunHistoryItemResponseModel
+{
+    public Guid Id { get; init; }
+
+    public string JobAlias { get; init; } = string.Empty;
+
+    public string JobName { get; init; } = string.Empty;
+
+    public string Trigger { get; init; } = string.Empty;
+
+    public string Status { get; init; } = string.Empty;
+
+    public DateTime StartedAt { get; init; }
+
+    public DateTime? CompletedAt { get; init; }
+
+    public TimeSpan? Duration { get; init; }
+
+    public string? Message { get; init; }
+
+    public string? Error { get; init; }
+}
+
+public record BackgroundJobRunHistoryPageResponseModel
+{
+    public int Page { get; init; }
+
+    public int PageSize { get; init; }
+
+    public int Total { get; init; }
+
+    public IEnumerable<BackgroundJobRunHistoryItemResponseModel> Items { get; init; } = Array.Empty<BackgroundJobRunHistoryItemResponseModel>();
+}

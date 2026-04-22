@@ -1,4 +1,4 @@
-import { customElement, html, state } from "@umbraco-cms/backoffice/external/lit";
+import { customElement, html, query, state } from "@umbraco-cms/backoffice/external/lit";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import type { UmbAuthContext } from "@umbraco-cms/backoffice/auth";
 import type { UUIButtonState } from "@umbraco-cms/backoffice/external/uui";
@@ -24,6 +24,10 @@ import type {
   BackgroundJobFilter,
   BackgroundJobRunLogEntry,
 } from "./background-jobs/types.js";
+import "./background-jobs-history.element.js";
+import type { JobsJobsJobsBackgroundJobsHistoryElement } from "./background-jobs-history.element.js";
+
+type DashboardTab = "jobs" | "history";
 
 interface RunLogsState {
   loading: boolean;
@@ -80,6 +84,12 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   @state()
   private _runLogsState: Record<string, RunLogsState> = {};
+
+  @state()
+  private _activeTab: DashboardTab = "jobs";
+
+  @query("jobs-jobs-jobs-background-jobs-history")
+  private _historyElement?: JobsJobsJobsBackgroundJobsHistoryElement;
 
   constructor() {
     super();
@@ -184,10 +194,34 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   private _startAutoRefresh() {
     this._stopAutoRefresh();
+    if (this._activeTab !== "jobs") {
+      return;
+    }
     this._autoRefreshHandle = window.setInterval(() => {
       void this._autoRefresh();
     }, JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs);
   }
+
+  private _onSelectTab = (tab: DashboardTab) => () => {
+    if (this._activeTab === tab) {
+      return;
+    }
+
+    this._activeTab = tab;
+    if (tab === "jobs" && this._items.length > 0) {
+      this._startAutoRefresh();
+    } else {
+      this._stopAutoRefresh();
+    }
+  };
+
+  private _openHistoryForAlias = (alias: string) => () => {
+    this._activeTab = "history";
+    this._stopAutoRefresh();
+    void this.updateComplete.then(() => {
+      this._historyElement?.setPreFilterAlias(alias);
+    });
+  };
 
   private _stopAutoRefresh() {
     if (this._autoRefreshHandle !== undefined) {
@@ -637,8 +671,66 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
           ${item.recentRuns?.length || item.latestRun
             ? html`<div class="job-card-sections">${this._renderRecentRuns(item)}${this._renderLatestRun(item)}</div>`
             : ""}
+
+          <div class="job-card-footer">
+            <button type="button" class="job-history-link" @click=${this._openHistoryForAlias(item.alias)}>
+              View in history →
+            </button>
+          </div>
         </section>`,
     );
+  }
+
+  private _renderJobsTab() {
+    return html`
+      <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
+      <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds when custom jobs are present.</p>
+      <p class="muted refresh-info">Run timestamps are shown in ${getViewerTimeZone()}. CRON schedules use the configured job timezone.</p>
+      ${this._errorMessage ? html`<p class="error">${this._errorMessage}</p>` : ""}
+      <div class="toolbar">
+        <label class="filter-label" for="status-filter">Status filter</label>
+        <select id="status-filter" class="filter-select" @change=${this._onFilterChange} .value=${this._statusFilter}>
+          <option value="all">All</option>
+          <option value="running">Running</option>
+          <option value="failed">Failed</option>
+          <option value="succeeded">Succeeded</option>
+          <option value="idle">Idle</option>
+        </select>
+      </div>
+      <div class="job-card-list">
+        ${this._renderRows()}
+      </div>
+    `;
+  }
+
+  private _renderHistoryTab() {
+    return html`
+      <p>Browse every persisted run across all jobs. Filters and search are applied server-side against the retention-capped history.</p>
+      <jobs-jobs-jobs-background-jobs-history .api=${this._api} .jobs=${this._items}></jobs-jobs-jobs-background-jobs-history>
+    `;
+  }
+
+  private _renderTabs() {
+    return html`
+      <div class="dashboard-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          class="dashboard-tab ${this._activeTab === "jobs" ? "dashboard-tab-active" : ""}"
+          aria-selected=${this._activeTab === "jobs"}
+          @click=${this._onSelectTab("jobs")}>
+          Jobs
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="dashboard-tab ${this._activeTab === "history" ? "dashboard-tab-active" : ""}"
+          aria-selected=${this._activeTab === "history"}
+          @click=${this._onSelectTab("history")}>
+          History
+        </button>
+      </div>
+    `;
   }
 
   override render() {
@@ -647,23 +739,8 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         <uui-button slot="header-actions" look="secondary" label="Refresh" @click=${this._reload} .state=${this._reloadState}>
           Refresh
         </uui-button>
-        <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
-        <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds when custom jobs are present.</p>
-        <p class="muted refresh-info">Run timestamps are shown in ${getViewerTimeZone()}. CRON schedules use the configured job timezone.</p>
-        ${this._errorMessage ? html`<p class="error">${this._errorMessage}</p>` : ""}
-        <div class="toolbar">
-          <label class="filter-label" for="status-filter">Status filter</label>
-          <select id="status-filter" class="filter-select" @change=${this._onFilterChange} .value=${this._statusFilter}>
-            <option value="all">All</option>
-            <option value="running">Running</option>
-            <option value="failed">Failed</option>
-            <option value="succeeded">Succeeded</option>
-            <option value="idle">Idle</option>
-          </select>
-        </div>
-        <div class="job-card-list">
-          ${this._renderRows()}
-        </div>
+        ${this._renderTabs()}
+        ${this._activeTab === "jobs" ? this._renderJobsTab() : this._renderHistoryTab()}
       </uui-box>
     `;
   }

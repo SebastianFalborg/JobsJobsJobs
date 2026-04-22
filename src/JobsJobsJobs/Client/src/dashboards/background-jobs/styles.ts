@@ -455,4 +455,53 @@ export const backgroundJobsDashboardStyles = css`
     color: var(--uui-color-danger);
     font-weight: 700;
   }
+
+  .dashboard-tabs {
+    display: flex;
+    gap: var(--uui-size-space-1);
+    border-bottom: 1px solid var(--uui-color-border);
+    margin-bottom: var(--uui-size-space-4);
+  }
+
+  .dashboard-tab {
+    background: transparent;
+    border: none;
+    padding: var(--uui-size-space-2) var(--uui-size-space-4);
+    cursor: pointer;
+    font-size: var(--uui-type-default-size);
+    font-weight: 600;
+    color: var(--uui-color-text-alt);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+
+  .dashboard-tab:hover {
+    color: var(--uui-color-text);
+  }
+
+  .dashboard-tab-active {
+    color: var(--uui-color-interactive-emphasis);
+    border-bottom-color: var(--uui-color-interactive-emphasis);
+  }
+
+  .job-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: var(--uui-size-space-2);
+    border-top: 1px solid color-mix(in srgb, var(--uui-color-border) 60%, transparent);
+  }
+
+  .job-history-link {
+    background: transparent;
+    border: none;
+    color: var(--uui-color-interactive-emphasis);
+    font-size: var(--uui-type-small-size);
+    font-weight: 600;
+    cursor: pointer;
+    padding: var(--uui-size-space-1) var(--uui-size-space-2);
+  }
+
+  .job-history-link:hover {
+    text-decoration: underline;
+  }
 `;

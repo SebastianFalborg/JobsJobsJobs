@@ -274,6 +274,39 @@ public record BackgroundJobRunHistoryItem
     public IReadOnlyCollection<BackgroundJobRunLogEntry> Logs { get; init; } = Array.Empty<BackgroundJobRunLogEntry>();
 }
 
+public record BackgroundJobRunHistoryQuery
+{
+    public const int DefaultPageSize = 25;
+    public const int MaxPageSize = 100;
+
+    public string? JobAlias { get; init; }
+
+    public IReadOnlyCollection<BackgroundJobStatus> Statuses { get; init; } = Array.Empty<BackgroundJobStatus>();
+
+    public BackgroundJobRunTrigger? Trigger { get; init; }
+
+    public DateTime? StartedAfter { get; init; }
+
+    public DateTime? StartedBefore { get; init; }
+
+    public string? Search { get; init; }
+
+    public int Page { get; init; } = 1;
+
+    public int PageSize { get; init; } = DefaultPageSize;
+}
+
+public record BackgroundJobRunHistoryPage
+{
+    public int Page { get; init; }
+
+    public int PageSize { get; init; }
+
+    public int Total { get; init; }
+
+    public IReadOnlyList<BackgroundJobRunHistoryItem> Items { get; init; } = Array.Empty<BackgroundJobRunHistoryItem>();
+}
+
 public interface IBackgroundJobRunHistoryService
 {
     public IReadOnlyDictionary<string, BackgroundJobRunHistoryItem> GetLatestRuns(
@@ -289,6 +322,8 @@ public interface IBackgroundJobRunHistoryService
     );
 
     public IReadOnlyList<BackgroundJobRunLogEntry> GetRunLogs(Guid runId);
+
+    public BackgroundJobRunHistoryPage QueryRuns(BackgroundJobRunHistoryQuery query);
 }
 
 public interface IBackgroundJobRunRecorder

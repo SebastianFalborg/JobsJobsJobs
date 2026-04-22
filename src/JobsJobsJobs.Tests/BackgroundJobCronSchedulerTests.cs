@@ -159,6 +159,15 @@ public class BackgroundJobCronSchedulerTests
                 );
 
         public IReadOnlyList<BackgroundJobRunLogEntry> GetRunLogs(Guid runId) => Array.Empty<BackgroundJobRunLogEntry>();
+
+        public BackgroundJobRunHistoryPage QueryRuns(BackgroundJobRunHistoryQuery query) =>
+            new()
+            {
+                Page = query.Page,
+                PageSize = query.PageSize,
+                Total = 0,
+                Items = Array.Empty<BackgroundJobRunHistoryItem>(),
+            };
     }
 
     private sealed class TestCronJob : CronBackgroundJobBase

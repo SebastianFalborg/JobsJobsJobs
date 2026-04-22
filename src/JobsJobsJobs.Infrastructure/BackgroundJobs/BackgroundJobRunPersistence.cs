@@ -250,6 +250,64 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         return logs;
     }
 
+    public BackgroundJobRunHistoryPage QueryRuns(BackgroundJobRunHistoryQuery query)
+    {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, BackgroundJobRunHistoryQuery.MaxPageSize);
+
+        var emptyPage = new BackgroundJobRunHistoryPage { Page = page, PageSize = pageSize };
+
+        if (_options.DisablePersistence)
+        {
+            return emptyPage;
+        }
+
+        var result = emptyPage;
+
+        TryExecuteRead(
+            "query background job run history",
+            () =>
+            {
+                using var scope = _scopeProvider.CreateScope(autoComplete: true);
+
+                var (whereClause, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(query);
+
+                var countSql = $"SELECT COUNT(*) FROM {BackgroundJobRunDto.TableName} r {whereClause}";
+                var total = scope.Database.ExecuteScalar<int>(countSql, parameters.ToArray());
+
+                if (total == 0)
+                {
+                    result = emptyPage with { Total = 0 };
+                    return;
+                }
+
+                var offset = (page - 1) * pageSize;
+                var rows = scope
+                    .Database.Fetch<BackgroundJobRunDto>(
+                        $"SELECT r.* FROM {BackgroundJobRunDto.TableName} r {whereClause} ORDER BY r.{nameof(BackgroundJobRunDto.StartedAt)} DESC",
+                        parameters.ToArray()
+                    )
+                    .Skip(offset)
+                    .Take(pageSize)
+                    .ToArray();
+
+                var items = rows.Where(row => BackgroundJobDashboardNaming.ShouldInclude(row.JobAlias, _options))
+                    .Select(row => MapRun(scope.Database, row, 0))
+                    .ToArray();
+
+                result = new BackgroundJobRunHistoryPage
+                {
+                    Page = page,
+                    PageSize = pageSize,
+                    Total = total,
+                    Items = items,
+                };
+            }
+        );
+
+        return result;
+    }
+
     public IReadOnlyDictionary<string, IReadOnlyCollection<BackgroundJobRunHistoryItem>> GetRecentRuns(
         IEnumerable<string> aliases,
         int maxRuns = 5,
