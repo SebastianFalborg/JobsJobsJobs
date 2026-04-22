@@ -11,7 +11,7 @@
   <PropertyGroup>
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
-    <Version>1.5.0</Version>
+    <Version>1.6.0</Version>
     <Title>Jobs Jobs Jobs</Title>
     <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, cooperative stop support, and opt-in CRON scheduling.</Description>
     <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs;cron;recurring-jobs</PackageTags>
@@ -20,7 +20,7 @@
     <PackageProjectUrl>https://github.com/SebastianFalborg/JobsJobsJobs</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SebastianFalborg/JobsJobsJobs</RepositoryUrl>
     <PackageReadmeFile>README_nuget.md</PackageReadmeFile>
-    <PackageReleaseNotes>Behavior change: run history is now pruned automatically, keeping 100 runs per job and 30 days of history by default. Adjust or disable via BackgroundJobDashboardOptions.RunHistoryRetention. A new internal recurring cleanup job performs the sweep hourly and is hidden from the dashboard. Added indexes on the run and run-log tables to keep dashboard queries and DELETEs fast. Dashboard now lets you view the full log history for any recent run via a Show logs toggle on each row, and pauses auto-refresh after three consecutive 5xx responses so server errors stop flooding the log.</PackageReleaseNotes>
+    <PackageReleaseNotes>New History tab on the Background Jobs dashboard: a cross-job browser over the retention-capped run history with filters for job, status, trigger, date range, and free-text search (matches run errors, run messages, and log lines), plus paginated results and inline log drill-down per run. Each job card now has a View in history link that opens the History tab pre-filtered by that job. Adds an IX_JobsJobsJobsBackgroundJobRun_StartedAt index (v6 migration) to keep the cross-job ordered query fast.</PackageReleaseNotes>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon></PackageIcon>
