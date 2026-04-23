@@ -40,6 +40,14 @@ function dateInputToEndOfDayIso(value: string): string | undefined {
   return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
 }
 
+function getTodayInputValue(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 @customElement("jobs-jobs-jobs-background-jobs-history")
 export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
   @property({ attribute: false })
@@ -327,7 +335,7 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
             class="filter-select"
             type="date"
             .value=${this._filterFromDate}
-            max=${this._filterToDate || ""}
+            max=${this._filterToDate || getTodayInputValue()}
             @change=${this._onFromDateChange} />
 
           <label class="filter-label" for="history-to-date">To</label>
@@ -337,6 +345,7 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
             type="date"
             .value=${this._filterToDate}
             min=${this._filterFromDate || ""}
+            max=${getTodayInputValue()}
             @change=${this._onToDateChange} />
 
           ${this._dateRangeError ? html`<span class="error">${this._dateRangeError}</span>` : ""}
