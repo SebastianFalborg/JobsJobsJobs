@@ -34,7 +34,7 @@ public class BackgroundJobRunHistoryQueryBuilderTests
         );
 
         Assert.Contains("JobAlias NOT LIKE @0", where);
-        Assert.Contains("Trigger = @1", where);
+        Assert.Contains("[Trigger] = @1", where);
         Assert.Contains("AND", where);
         Assert.Equal(2, parameters.Count);
         Assert.Equal("Umbraco.%", parameters[0]);
@@ -71,7 +71,7 @@ public class BackgroundJobRunHistoryQueryBuilderTests
             new BackgroundJobRunHistoryQuery { Trigger = BackgroundJobRunTrigger.Manual }
         );
 
-        Assert.Contains("Trigger = @0", where);
+        Assert.Contains("[Trigger] = @0", where);
         Assert.Single(parameters);
         Assert.Equal("Manual", parameters[0]);
     }

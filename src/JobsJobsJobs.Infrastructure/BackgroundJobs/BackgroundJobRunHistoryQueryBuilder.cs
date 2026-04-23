@@ -35,7 +35,7 @@ internal static class BackgroundJobRunHistoryQueryBuilder
 
         if (query.Trigger.HasValue)
         {
-            clauses.Add($"r.{nameof(BackgroundJobRunDto.Trigger)} = @{parameters.Count}");
+            clauses.Add($"r.[{nameof(BackgroundJobRunDto.Trigger)}] = @{parameters.Count}");
             parameters.Add(query.Trigger.Value.ToString());
         }
 

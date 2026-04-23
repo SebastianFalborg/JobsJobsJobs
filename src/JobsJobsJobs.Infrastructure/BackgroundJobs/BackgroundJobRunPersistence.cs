@@ -200,7 +200,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
                 {
                     var runs = trigger.HasValue
                         ? scope.Database.Fetch<BackgroundJobRunDto>(
-                            "SELECT * FROM JobsJobsJobsBackgroundJobRun WHERE JobAlias = @0 AND Trigger = @1 ORDER BY StartedAt DESC",
+                            "SELECT * FROM JobsJobsJobsBackgroundJobRun WHERE JobAlias = @0 AND [Trigger] = @1 ORDER BY StartedAt DESC",
                             alias,
                             trigger.Value.ToString()
                         )
