@@ -68,9 +68,6 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   private _isLoading = false;
 
   @state()
-  private _reloadState: UUIButtonState = undefined;
-
-  @state()
   private _runStates: Record<string, UUIButtonState> = {};
 
   @state()
@@ -78,6 +75,9 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
 
   @state()
   private _errorMessage = "";
+
+  @state()
+  private _autoRefreshPaused = false;
 
   @state()
   private _statusFilter: BackgroundJobFilter = "all";
@@ -160,6 +160,7 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       const data = await this._api.list();
       this._items = data.items ?? [];
       this._consecutiveServerErrors = 0;
+      this._autoRefreshPaused = false;
 
       if (this._items.length > 0) {
         this._startAutoRefresh();
@@ -173,7 +174,8 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
         this._consecutiveServerErrors += 1;
         if (this._consecutiveServerErrors >= JobsJobsJobsBackgroundJobsDashboardElement._consecutiveServerErrorLimit) {
           this._stopAutoRefresh();
-          this._errorMessage = `The server keeps returning errors (status ${error.status}). Auto-refresh is paused. Click Refresh to try again.`;
+          this._autoRefreshPaused = true;
+          this._errorMessage = `The server keeps returning errors (status ${error.status}). Auto-refresh is paused.`;
         } else {
           this._errorMessage = error.message;
         }
@@ -184,13 +186,6 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
       this._isLoading = false;
     }
   }
-
-  private _reload = async () => {
-    this._consecutiveServerErrors = 0;
-    this._reloadState = "waiting";
-    await this._load();
-    this._reloadState = this._errorMessage ? "failed" : "success";
-  };
 
   private _startAutoRefresh() {
     this._stopAutoRefresh();
@@ -681,12 +676,24 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
     );
   }
 
+  private _retryAfterPause = () => {
+    this._consecutiveServerErrors = 0;
+    void this._load();
+  };
+
   private _renderJobsTab() {
     return html`
       <p>Recurring background jobs registered in Umbraco with status, schedule, and manual trigger. The schedule column shows either CRON or the recurring interval.</p>
       <p class="muted refresh-info">Auto-refreshes every ${JobsJobsJobsBackgroundJobsDashboardElement._autoRefreshIntervalMs / 1000} seconds when custom jobs are present.</p>
       <p class="muted refresh-info">Run timestamps are shown in ${getViewerTimeZone()}. CRON schedules use the configured job timezone.</p>
-      ${this._errorMessage ? html`<p class="error">${this._errorMessage}</p>` : ""}
+      ${this._errorMessage
+        ? html`<p class="error">
+            ${this._errorMessage}
+            ${this._autoRefreshPaused
+              ? html`<uui-button look="secondary" compact label="Retry" @click=${this._retryAfterPause}>Retry</uui-button>`
+              : ""}
+          </p>`
+        : ""}
       <div class="toolbar">
         <label class="filter-label" for="status-filter">Status filter</label>
         <select id="status-filter" class="filter-select" @change=${this._onFilterChange} .value=${this._statusFilter}>
@@ -736,9 +743,6 @@ export class JobsJobsJobsBackgroundJobsDashboardElement extends UmbLitElement {
   override render() {
     return html`
       <uui-box headline="Background Jobs">
-        <uui-button slot="header-actions" look="secondary" label="Refresh" @click=${this._reload} .state=${this._reloadState}>
-          Refresh
-        </uui-button>
         ${this._renderTabs()}
         ${this._activeTab === "jobs" ? this._renderJobsTab() : this._renderHistoryTab()}
       </uui-box>

@@ -4,10 +4,16 @@ namespace JobsJobsJobs.Infrastructure.BackgroundJobs;
 
 internal static class BackgroundJobRunHistoryQueryBuilder
 {
-    public static (string WhereClause, List<object> Parameters) BuildWhereClause(BackgroundJobRunHistoryQuery query)
+    public static (string WhereClause, List<object> Parameters) BuildWhereClause(BackgroundJobRunHistoryQuery query, bool includeUmbracoJobs = true)
     {
         var clauses = new List<string>();
         var parameters = new List<object>();
+
+        if (includeUmbracoJobs is false)
+        {
+            clauses.Add($"r.{nameof(BackgroundJobRunDto.JobAlias)} NOT LIKE @{parameters.Count}");
+            parameters.Add("Umbraco.%");
+        }
 
         if (string.IsNullOrWhiteSpace(query.JobAlias) is false)
         {

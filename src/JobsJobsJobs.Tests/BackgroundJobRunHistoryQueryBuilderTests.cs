@@ -16,6 +16,32 @@ public class BackgroundJobRunHistoryQueryBuilderTests
     }
 
     [Fact]
+    public void BuildWhereClause_WithIncludeUmbracoFalse_ExcludesUmbracoAliases()
+    {
+        var (where, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(new BackgroundJobRunHistoryQuery(), includeUmbracoJobs: false);
+
+        Assert.Contains("JobAlias NOT LIKE @0", where);
+        Assert.Single(parameters);
+        Assert.Equal("Umbraco.%", parameters[0]);
+    }
+
+    [Fact]
+    public void BuildWhereClause_WithIncludeUmbracoFalseAndTriggerFilter_CombinesBoth()
+    {
+        var (where, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(
+            new BackgroundJobRunHistoryQuery { Trigger = BackgroundJobRunTrigger.Manual },
+            includeUmbracoJobs: false
+        );
+
+        Assert.Contains("JobAlias NOT LIKE @0", where);
+        Assert.Contains("Trigger = @1", where);
+        Assert.Contains("AND", where);
+        Assert.Equal(2, parameters.Count);
+        Assert.Equal("Umbraco.%", parameters[0]);
+        Assert.Equal("Manual", parameters[1]);
+    }
+
+    [Fact]
     public void BuildWhereClause_WithJobAlias_EmitsAliasFilter()
     {
         var (where, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(new BackgroundJobRunHistoryQuery { JobAlias = "My.Job" });

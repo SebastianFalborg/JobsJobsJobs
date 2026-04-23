@@ -373,7 +373,7 @@ Each row in the `Recent stored runs` panel has a `Show logs` toggle. Expanding i
 
 ### Resilience to server errors
 
-The dashboard auto-refreshes every 5 seconds. If the server returns a 5xx response three times in a row, auto-refresh is paused and a persistent banner asks you to click `Refresh` to try again. A successful response (or a manual refresh) resets the counter.
+The dashboard auto-refreshes every 5 seconds. If the server returns a 5xx response three times in a row, auto-refresh is paused and a persistent banner appears with a `Retry` button next to the error message. Clicking `Retry` resets the counter and resumes auto-refresh on the next successful response.
 
 ### History tab
 
@@ -384,14 +384,14 @@ The History tab supports:
 - **Filter by job** — dropdown sourced from the current jobs list
 - **Filter by status** — multi-select chips for `Succeeded`, `Failed`, `Stopped`, `Running`, `Ignored`, `Idle`
 - **Filter by trigger** — `Automatic` or `Manual`
-- **Filter by date range** — `Started after` and `Started before` (local time, converted to UTC for the query)
+- **Filter by date range** — `From` and `To` (day-level dates in your local time; the `To` date includes the full day up to 23:59:59.999 local). The inputs constrain each other so you cannot pick a `To` before `From`.
 - **Free-text search** — matches against the stored error, the stored message, and every log line for a run (`LIKE` with automatic wildcards, debounced 300 ms)
 - **Paginated list** — 10 / 25 / 50 runs per page, sorted newest first
 - **Inline log drill-down** — each row has a `Show logs` toggle that lazily fetches every log line for that run
 
 Each job card in the `Jobs` tab has a `View in history →` link that jumps to the History tab with the alias pre-filtered, so you can drill from a misbehaving job into its full recent history in one click.
 
-Auto-refresh is paused while the History tab is active so your filters and pagination do not reset underneath you; use `Refresh` on the History tab when you want the latest.
+Auto-refresh is paused while the History tab is active so your filters and pagination do not reset underneath you; use `Search` on the History tab when you want to re-run the current query.
 
 **Search performance caveat.** Search runs as parameterised `LIKE '%term%'` against the run and log tables. On sites with very large log tables (tens of millions of rows, typically because a spammy job bypassed retention) the search can take several seconds. Retention defaults to 100 runs per job and 30 days, which keeps the search fast on typical installs; narrow the job / date filters before searching if you need to.
 

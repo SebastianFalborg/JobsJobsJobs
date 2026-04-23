@@ -26,6 +26,20 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+function dateInputToStartOfDayIso(value: string): string | undefined {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day, 0, 0, 0, 0).toISOString();
+}
+
+function dateInputToEndOfDayIso(value: string): string | undefined {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
+}
+
 @customElement("jobs-jobs-jobs-background-jobs-history")
 export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
   @property({ attribute: false })
@@ -44,10 +58,13 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
   private _filterTrigger: BackgroundJobRunTriggerFilter | "" = "";
 
   @state()
-  private _filterStartedAfter = "";
+  private _filterFromDate = "";
 
   @state()
-  private _filterStartedBefore = "";
+  private _filterToDate = "";
+
+  @state()
+  private _dateRangeError = "";
 
   @state()
   private _filterSearch = "";
@@ -103,6 +120,10 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
       return;
     }
 
+    if (this._dateRangeError) {
+      return;
+    }
+
     this._isLoading = true;
     this._errorMessage = "";
 
@@ -110,8 +131,8 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
       jobAlias: this._filterJobAlias || undefined,
       statuses: this._filterStatuses.length > 0 ? this._filterStatuses : undefined,
       trigger: this._filterTrigger || undefined,
-      startedAfter: this._filterStartedAfter ? new Date(this._filterStartedAfter).toISOString() : undefined,
-      startedBefore: this._filterStartedBefore ? new Date(this._filterStartedBefore).toISOString() : undefined,
+      startedAfter: dateInputToStartOfDayIso(this._filterFromDate),
+      startedBefore: dateInputToEndOfDayIso(this._filterToDate),
       search: this._filterSearch ? this._filterSearch.trim() : undefined,
       page: this._page,
       pageSize: this._pageSize,
@@ -161,17 +182,29 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
     void this._load();
   };
 
-  private _onStartedAfterChange = (event: Event) => {
-    this._filterStartedAfter = (event.target as HTMLInputElement).value;
+  private _onFromDateChange = (event: Event) => {
+    this._filterFromDate = (event.target as HTMLInputElement).value;
+    this._validateDateRange();
+    if (this._dateRangeError) return;
     this._page = 1;
     void this._load();
   };
 
-  private _onStartedBeforeChange = (event: Event) => {
-    this._filterStartedBefore = (event.target as HTMLInputElement).value;
+  private _onToDateChange = (event: Event) => {
+    this._filterToDate = (event.target as HTMLInputElement).value;
+    this._validateDateRange();
+    if (this._dateRangeError) return;
     this._page = 1;
     void this._load();
   };
+
+  private _validateDateRange() {
+    if (this._filterFromDate && this._filterToDate && this._filterToDate < this._filterFromDate) {
+      this._dateRangeError = "To date must be on or after From date.";
+      return;
+    }
+    this._dateRangeError = "";
+  }
 
   private _onSearchInput = (event: Event) => {
     this._filterSearch = (event.target as HTMLInputElement).value;
@@ -194,8 +227,9 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
     this._filterJobAlias = "";
     this._filterStatuses = [];
     this._filterTrigger = "";
-    this._filterStartedAfter = "";
-    this._filterStartedBefore = "";
+    this._filterFromDate = "";
+    this._filterToDate = "";
+    this._dateRangeError = "";
     this._filterSearch = "";
     this._page = 1;
     void this._load();
@@ -287,21 +321,25 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
         </div>
 
         <div class="history-filter-row">
-          <label class="filter-label" for="history-started-after">Started after</label>
+          <label class="filter-label" for="history-from-date">From</label>
           <input
-            id="history-started-after"
+            id="history-from-date"
             class="filter-select"
-            type="datetime-local"
-            .value=${this._filterStartedAfter}
-            @change=${this._onStartedAfterChange} />
+            type="date"
+            .value=${this._filterFromDate}
+            max=${this._filterToDate || ""}
+            @change=${this._onFromDateChange} />
 
-          <label class="filter-label" for="history-started-before">Started before</label>
+          <label class="filter-label" for="history-to-date">To</label>
           <input
-            id="history-started-before"
+            id="history-to-date"
             class="filter-select"
-            type="datetime-local"
-            .value=${this._filterStartedBefore}
-            @change=${this._onStartedBeforeChange} />
+            type="date"
+            .value=${this._filterToDate}
+            min=${this._filterFromDate || ""}
+            @change=${this._onToDateChange} />
+
+          ${this._dateRangeError ? html`<span class="error">${this._dateRangeError}</span>` : ""}
         </div>
 
         <div class="history-filter-row">
@@ -315,7 +353,7 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
             @input=${this._onSearchInput} />
 
           <uui-button look="secondary" label="Clear filters" @click=${this._clearFilters}>Clear filters</uui-button>
-          <uui-button look="primary" label="Refresh" @click=${this._refresh}>Refresh</uui-button>
+          <uui-button look="primary" label="Search" @click=${this._refresh}>Search</uui-button>
         </div>
       </div>
     `;

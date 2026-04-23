@@ -270,7 +270,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
             {
                 using var scope = _scopeProvider.CreateScope(autoComplete: true);
 
-                var (whereClause, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(query);
+                var (whereClause, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(query, _options.IncludeUmbracoJobs);
 
                 var countSql = $"SELECT COUNT(*) FROM {BackgroundJobRunDto.TableName} r {whereClause}";
                 var total = scope.Database.ExecuteScalar<int>(countSql, parameters.ToArray());
@@ -281,19 +281,14 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
                     return;
                 }
 
-                var offset = (page - 1) * pageSize;
-                var rows = scope
-                    .Database.Fetch<BackgroundJobRunDto>(
-                        $"SELECT r.* FROM {BackgroundJobRunDto.TableName} r {whereClause} ORDER BY r.{nameof(BackgroundJobRunDto.StartedAt)} DESC",
-                        parameters.ToArray()
-                    )
-                    .Skip(offset)
-                    .Take(pageSize)
-                    .ToArray();
+                var rows = scope.Database.SkipTake<BackgroundJobRunDto>(
+                    (page - 1) * pageSize,
+                    pageSize,
+                    $"SELECT r.* FROM {BackgroundJobRunDto.TableName} r {whereClause} ORDER BY r.{nameof(BackgroundJobRunDto.StartedAt)} DESC",
+                    parameters.ToArray()
+                );
 
-                var items = rows.Where(row => BackgroundJobDashboardNaming.ShouldInclude(row.JobAlias, _options))
-                    .Select(row => MapRun(scope.Database, row, 0))
-                    .ToArray();
+                var items = rows.Select(row => MapRun(scope.Database, row, 0)).ToArray();
 
                 result = new BackgroundJobRunHistoryPage
                 {
