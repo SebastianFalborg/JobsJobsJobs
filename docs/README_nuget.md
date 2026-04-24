@@ -385,7 +385,7 @@ The History tab supports:
 - **Filter by status** — multi-select chips for `Succeeded`, `Failed`, `Stopped`, `Running`, `Ignored`, `Idle`
 - **Filter by trigger** — `Automatic` or `Manual`
 - **Filter by date range** — `From` and `To` (day-level dates in your local time; the `To` date includes the full day up to 23:59:59.999 local). The inputs constrain each other so you cannot pick a `To` before `From`.
-- **Free-text search** — matches against the stored error, the stored message, and every log line for a run (`LIKE` with automatic wildcards, debounced 300 ms)
+- **Free-text search** — matches against the stored error, the stored message, and every log line for a run (`LIKE` with automatic wildcards, debounced 300 ms; minimum 3 characters so the log scan never runs on a single-letter input)
 - **Paginated list** — 10 / 25 / 50 runs per page, sorted newest first
 - **Inline log drill-down** — each row has a `Show logs` toggle that lazily fetches every log line for that run
 
@@ -393,7 +393,7 @@ Each job card in the `Jobs` tab has a `View in history →` link that jumps to t
 
 Auto-refresh is paused while the History tab is active so your filters and pagination do not reset underneath you; use `Search` on the History tab when you want to re-run the current query.
 
-**Search performance caveat.** Search runs as parameterised `LIKE '%term%'` against the run and log tables. On sites with very large log tables (tens of millions of rows, typically because a spammy job bypassed retention) the search can take several seconds. Retention defaults to 100 runs per job and 30 days, which keeps the search fast on typical installs; narrow the job / date filters before searching if you need to.
+**Search performance caveat.** Search runs as parameterised `LIKE '%term%'` against the run and log tables. The search is ignored when fewer than 3 characters are typed, so a single-letter pattern can never trigger a full-table scan; the client hints this in a small note under the input. On sites with very large log tables (tens of millions of rows, typically because a spammy job bypassed retention) the search can still take several seconds even with a 3-character minimum. Retention defaults to 100 runs per job and 30 days, which keeps the search fast on typical installs; narrow the job / date filters before searching if you need to.
 
 ## Database tables
 

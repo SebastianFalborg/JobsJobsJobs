@@ -119,6 +119,28 @@ public class BackgroundJobRunHistoryQueryBuilderTests
         Assert.Empty(parameters);
     }
 
+    [Theory]
+    [InlineData("a")]
+    [InlineData("ab")]
+    [InlineData("  ab  ")]
+    public void BuildWhereClause_WithSearchShorterThanMinimum_IsIgnored(string search)
+    {
+        var (where, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(new BackgroundJobRunHistoryQuery { Search = search });
+
+        Assert.Equal(string.Empty, where);
+        Assert.Empty(parameters);
+    }
+
+    [Fact]
+    public void BuildWhereClause_WithSearchAtMinimumLength_EmitsClause()
+    {
+        var (where, parameters) = BackgroundJobRunHistoryQueryBuilder.BuildWhereClause(new BackgroundJobRunHistoryQuery { Search = "abc" });
+
+        Assert.Contains("Error LIKE @0", where);
+        Assert.Single(parameters);
+        Assert.Equal("%abc%", parameters[0]);
+    }
+
     [Fact]
     public void BuildWhereClause_WithAllFilters_CombinesWithAnd()
     {

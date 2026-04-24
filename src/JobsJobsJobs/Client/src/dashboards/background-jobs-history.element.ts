@@ -40,6 +40,8 @@ function dateInputToEndOfDayIso(value: string): string | undefined {
   return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
 }
 
+const MINIMUM_SEARCH_TERM_LENGTH = 3;
+
 function getTodayInputValue(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -141,7 +143,7 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
       trigger: this._filterTrigger || undefined,
       startedAfter: dateInputToStartOfDayIso(this._filterFromDate),
       startedBefore: dateInputToEndOfDayIso(this._filterToDate),
-      search: this._filterSearch ? this._filterSearch.trim() : undefined,
+      search: this._sanitizedSearchTerm(),
       page: this._page,
       pageSize: this._pageSize,
     };
@@ -212,6 +214,11 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
       return;
     }
     this._dateRangeError = "";
+  }
+
+  private _sanitizedSearchTerm(): string | undefined {
+    const trimmed = this._filterSearch.trim();
+    return trimmed.length >= MINIMUM_SEARCH_TERM_LENGTH ? trimmed : undefined;
   }
 
   private _onSearchInput = (event: Event) => {
@@ -358,11 +365,16 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
             class="filter-select history-search-input"
             type="search"
             placeholder="Search run errors, messages, and log lines…"
+            minlength=${MINIMUM_SEARCH_TERM_LENGTH}
             .value=${this._filterSearch}
             @input=${this._onSearchInput} />
 
           <uui-button look="secondary" label="Clear filters" @click=${this._clearFilters}>Clear filters</uui-button>
           <uui-button look="primary" label="Search" @click=${this._refresh}>Search</uui-button>
+
+          ${this._filterSearch.trim().length > 0 && this._filterSearch.trim().length < MINIMUM_SEARCH_TERM_LENGTH
+            ? html`<span class="muted">Type at least ${MINIMUM_SEARCH_TERM_LENGTH} characters to search.</span>`
+            : ""}
         </div>
       </div>
     `;

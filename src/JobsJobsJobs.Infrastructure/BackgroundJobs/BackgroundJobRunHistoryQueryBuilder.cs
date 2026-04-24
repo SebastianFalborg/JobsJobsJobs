@@ -4,6 +4,8 @@ namespace JobsJobsJobs.Infrastructure.BackgroundJobs;
 
 internal static class BackgroundJobRunHistoryQueryBuilder
 {
+    public const int MinimumSearchTermLength = 3;
+
     public static (string WhereClause, List<object> Parameters) BuildWhereClause(BackgroundJobRunHistoryQuery query, bool includeUmbracoJobs = true)
     {
         var clauses = new List<string>();
@@ -51,9 +53,10 @@ internal static class BackgroundJobRunHistoryQueryBuilder
             parameters.Add(query.StartedBefore.Value);
         }
 
-        if (string.IsNullOrWhiteSpace(query.Search) is false)
+        var trimmedSearch = query.Search?.Trim() ?? string.Empty;
+        if (trimmedSearch.Length >= MinimumSearchTermLength)
         {
-            var pattern = "%" + query.Search.Trim() + "%";
+            var pattern = "%" + trimmedSearch + "%";
             var searchIndex = parameters.Count;
             parameters.Add(pattern);
 
