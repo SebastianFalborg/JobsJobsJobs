@@ -384,7 +384,7 @@ The History tab supports:
 - **Filter by job** — dropdown sourced from the current jobs list
 - **Filter by status** — multi-select chips for `Succeeded`, `Failed`, `Stopped`, `Running`, `Ignored`, `Idle`
 - **Filter by trigger** — `Automatic` or `Manual`
-- **Filter by date range** — `From` and `To` (day-level dates in your local time; the `To` date includes the full day up to 23:59:59.999 local). The inputs constrain each other so you cannot pick a `To` before `From`.
+- **Filter by date range** — `From` and `To` (day-level dates in your local time; the `To` date includes the full day up to 23:59:59.999 local). The inputs constrain each other so you cannot pick a `To` before `From`. Day boundaries are your browser's local time and are converted to UTC before reaching the server, so runs are matched against the local wall-clock day. Two corner cases to be aware of: picking the DST fall-back day can miss runs inside the repeated hour, and ops users in different time zones will see different result sets for the same picked date. Use the job / status / trigger / search filters if you need precision inside a DST transition or a tight UTC window.
 - **Free-text search** — matches against the stored error, the stored message, and every log line for a run (`LIKE` with automatic wildcards, debounced 300 ms; minimum 3 characters so the log scan never runs on a single-letter input)
 - **Paginated list** — 10 / 25 / 50 runs per page, sorted newest first
 - **Inline log drill-down** — each row has a `Show logs` toggle that lazily fetches every log line for that run
