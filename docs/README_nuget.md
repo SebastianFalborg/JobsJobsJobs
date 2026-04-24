@@ -6,6 +6,8 @@
 
 Jobs Jobs Jobs is a simple job scheduler and backoffice dashboard for Umbraco, built on top of Umbraco's existing background jobs infrastructure. It adds runtime status, manual triggering, persisted run history, stored run logs, cooperative stop support, and opt-in CRON scheduling.
 
+![Jobs Jobs Jobs dashboard — Jobs tab](https://raw.githubusercontent.com/SebastianFalborg/JobsJobsJobs/main/docs/screenshots/jobs-tab.png)
+
 This package is available on the Umbraco Marketplace, but it has not been tested on production workloads yet. Please do your own testing and validation before using it in production.
 
 ## Why use this instead of Hangfire?
@@ -371,6 +373,8 @@ The dashboard can request stop for running jobs that explicitly opt in to cooper
 
 Each row in the `Recent stored runs` panel has a `Show logs` toggle. Expanding it fetches every log line captured for that specific run and lists them with timestamps and level badges. Logs are fetched on demand so opening the toggle does not affect dashboard load time.
 
+![Jobs tab with a run expanded to show its stored log lines](https://raw.githubusercontent.com/SebastianFalborg/JobsJobsJobs/main/docs/screenshots/run-logs.png)
+
 ### Resilience to server errors
 
 The dashboard auto-refreshes every 5 seconds. If the server returns a 5xx response three times in a row, auto-refresh is paused and a persistent banner appears with a `Retry` button next to the error message. Clicking `Retry` resets the counter and resumes auto-refresh on the next successful response.
@@ -380,6 +384,8 @@ The dashboard auto-refreshes every 5 seconds. If the server returns a 5xx respon
 ### History tab
 
 The dashboard has two tabs: `Jobs` (the live status view) and `History` (a cross-job browser over every persisted run in the retention-capped history).
+
+![History tab with filters and paginated run list](https://raw.githubusercontent.com/SebastianFalborg/JobsJobsJobs/main/docs/screenshots/history-tab.png)
 
 The History tab supports:
 
