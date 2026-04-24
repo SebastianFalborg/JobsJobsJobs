@@ -548,7 +548,7 @@ internal sealed class BackgroundJobRunStore : IBackgroundJobRunHistoryService, I
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to {Operation}. Returning partial or empty background job history.", operation);
+            _logger.LogError(ex, "Failed to {Operation}. Returning partial or empty background job history.", operation);
         }
     }
 
