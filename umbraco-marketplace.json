@@ -7,8 +7,22 @@
     "Category": "",
     "Description": "",
     "LicenseTypes": [ "Free" ],
-    "IssueTrackerUrl": "https://github.com/NotSoap/JobsJobsJobs/issues",
+    "IssueTrackerUrl": "https://github.com/SebastianFalborg/JobsJobsJobs/issues",
     "PackageType": "Package",
     "Tags": [],
-    "Title": "Jobs Jobs Jobs "
+    "Title": "Jobs Jobs Jobs ",
+    "Screenshots": [
+        {
+            "ImageUrl": "https://raw.githubusercontent.com/SebastianFalborg/JobsJobsJobs/main/docs/Screenshots/Dashboard%20overview.png",
+            "Caption": "Dashboard overview showing job status and recent runs"
+        },
+        {
+            "ImageUrl": "https://raw.githubusercontent.com/SebastianFalborg/JobsJobsJobs/main/docs/Screenshots/History%20tab.png",
+            "Caption": "History tab with filtering and search across all job runs"
+        },
+        {
+            "ImageUrl": "https://raw.githubusercontent.com/SebastianFalborg/JobsJobsJobs/main/docs/Screenshots/Stoppable%20CRON%20job.png",
+            "Caption": "Stoppable CRON job with cooperative cancellation support"
+        }
+    ]
   }
