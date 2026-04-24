@@ -11,7 +11,7 @@
   <PropertyGroup>
     <Product>Umbraco.Community.JobsJobsJobs</Product>
     <PackageId>Umbraco.Community.JobsJobsJobs</PackageId>
-    <Version>1.6.0-alpha003</Version>
+    <Version>1.6.0</Version>
     <Title>Jobs Jobs Jobs</Title>
     <Description>Backoffice dashboard for recurring Umbraco background jobs with status, manual triggering, persisted run history, cooperative stop support, and opt-in CRON scheduling.</Description>
     <PackageTags>umbraco;umbraco-marketplace;background-jobs;dashboard;scheduled-jobs;cron;recurring-jobs</PackageTags>
