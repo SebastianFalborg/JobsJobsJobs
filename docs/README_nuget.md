@@ -375,6 +375,8 @@ Each row in the `Recent stored runs` panel has a `Show logs` toggle. Expanding i
 
 The dashboard auto-refreshes every 5 seconds. If the server returns a 5xx response three times in a row, auto-refresh is paused and a persistent banner appears with a `Retry` button next to the error message. Clicking `Retry` resets the counter and resumes auto-refresh on the next successful response.
 
+> **UX change in 1.6.0.** The global `Refresh` button has been removed from the dashboard toolbar. The 5 s auto-refresh on the Jobs tab already covers the common case, and the new History tab has its own `Search` button for intentional reloads, so one toolbar-level action covered two different behaviours and tended to confuse. Auto-refresh is also paused while the History tab is active so filters and pagination are not reset underneath you.
+
 ### History tab
 
 The dashboard has two tabs: `Jobs` (the live status view) and `History` (a cross-job browser over every persisted run in the retention-capped history).

@@ -33,3 +33,30 @@ Re-throw the second set as a typed `BackgroundJobRunPersistenceException` that t
 **Out of scope for 1.7.0.**
 
 - Splitting transient retry (auto-retry with backoff before giving up) is a separate item — the dashboard already has client-side retry so we do not need a server-side retry loop for 1.7.0.
+
+### Configurable dashboard auto-refresh interval
+
+**Context.** 1.5.0 shipped a global `Refresh` button plus a hard-coded 5 s auto-refresh loop on the dashboard. 1.6.0 removed the global button in favour of tab-contextual actions (History has its own `Search`; 5xx errors surface a `Retry`), but the auto-refresh interval is still a hard-coded `5000` ms in the dashboard element. That is a reasonable default but not a universally good one:
+
+- On a site with dozens of registered jobs the 5 s poll hits the `/dashboard` endpoint often enough that operators on weak connections or with expensive DB queries behind the dashboard feel it.
+- On a site that is actively monitoring a flaky job the operator may want *faster* feedback (1 s) to catch the exact moment it flips from `Running` to `Failed`.
+- On a long-lived backoffice tab left open overnight the 5 s poll is noise — 60 s would be plenty.
+
+**Target behaviour.**
+
+- Replace the implicit 5 s with a small `<select>` in the Jobs tab toolbar, labelled "Refresh every", with options `1s`, `5s` (default), `15s`, `30s`, `60s`.
+- Persist the choice in `localStorage` under a package-scoped key so it survives tab reloads and backoffice restarts per-browser.
+- When the History tab is active the setting is still persisted but has no effect (auto-refresh remains paused on History).
+- Server-side: no change. The endpoint already handles any poll rate.
+
+**Acceptance.**
+
+- Changing the dropdown immediately re-arms the interval with the new value (no reload needed).
+- Reloading the dashboard restores the previously picked interval.
+- Switching to the History tab and back does not reset the interval.
+- The "3 consecutive 5xx -> pause auto-refresh -> Retry" recovery path still works unchanged when the interval is something other than 5 s.
+
+**Out of scope.**
+
+- Server-driven interval hints (e.g. telling the client "poll less often during the retention sweep") — a later item, not needed for 1.7.0.
+- Per-tab different intervals — one setting per browser is enough.
