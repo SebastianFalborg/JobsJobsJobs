@@ -6,11 +6,11 @@ These PNGs are referenced from `docs/README_nuget.md` via raw GitHub URLs so nug
 
 | Filename | Shown in README section | Also referenced from |
 | --- | --- | --- |
-| `Dashboard overview.png` | Top of README (hero) | `umbraco-marketplace.json` |
-| `History tab.png` | `### History tab` | `umbraco-marketplace.json` |
-| `Stoppable CRON job.png` | `## Stop support and cooperative cancellation` | `umbraco-marketplace.json` |
+| `dashboard-overview.png` | Top of README (hero) | `umbraco-marketplace.json` |
+| `history-tab.png` | `### History tab` | `umbraco-marketplace.json` |
+| `stoppable-cron-job.png` | `## Stop support and cooperative cancellation` | `umbraco-marketplace.json` |
 
-The folder is named `Screenshots` with a capital `S` — GitHub URLs are case-sensitive, so do not rename to lowercase or the URLs in `README_nuget.md` and `umbraco-marketplace.json` will 404 on nuget.org and the marketplace. Spaces in filenames are URL-encoded as `%20` in both files; do not rename the files without updating both reference points.
+The folder is named `Screenshots` with a capital `S` — GitHub URLs are case-sensitive, so do not rename to lowercase or the URLs in `README_nuget.md` and `umbraco-marketplace.json` will 404 on nuget.org and the marketplace. Filenames are slug-style (lowercase, hyphenated, no spaces) so the URLs need no encoding; if you replace a screenshot, keep the same filename or update both reference points in lockstep.
 
 ## Tips
 
