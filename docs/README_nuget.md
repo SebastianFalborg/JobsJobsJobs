@@ -450,6 +450,8 @@ The package prunes old run history automatically. By default it keeps the **100 
 
 > **Behavior change from 1.4.x.** Previous versions retained run history indefinitely. Upgrading to 1.5.0 will start pruning old runs the first time the cleanup job fires. If you upgraded from 1.4.x and have a very large `JobsJobsJobsBackgroundJobRun` / `JobsJobsJobsBackgroundJobRunLog` table, the first sweep may do significant DELETE work; run it outside peak hours or disable retention temporarily and truncate the tables manually instead.
 
+> **Upgrade note for 1.6.0.** Startup runs one new migration (`v6`) that creates a single non-clustered index on `JobsJobsJobsBackgroundJobRun(StartedAt DESC)` so the cross-job History tab query stays fast. On typical installs (retention enabled since 1.5.x) the table is small and the index build is near-instant. If you are jumping from 1.4.x with a multi-million-row run table, the `CREATE INDEX` briefly locks the table on SQL Server Standard Edition and runs against the full row set, so plan the upgrade for a maintenance window or create the index manually ahead of time — the migration checks for the index by name (`IX_JobsJobsJobsBackgroundJobRun_StartedAt`) and no-ops if it is already present.
+
 Configure retention via `BackgroundJobDashboardOptions.RunHistoryRetention` in `appsettings.json` or a composer. All settings are optional and fall back to the defaults below:
 
 ```json
