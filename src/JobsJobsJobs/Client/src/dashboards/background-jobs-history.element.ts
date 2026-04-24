@@ -221,6 +221,17 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
     return trimmed.length >= MINIMUM_SEARCH_TERM_LENGTH ? trimmed : undefined;
   }
 
+  private _hasActiveFilters(): boolean {
+    return (
+      this._filterJobAlias !== "" ||
+      this._filterStatuses.length > 0 ||
+      this._filterTrigger !== "" ||
+      this._filterFromDate !== "" ||
+      this._filterToDate !== "" ||
+      this._sanitizedSearchTerm() !== undefined
+    );
+  }
+
   private _onSearchInput = (event: Event) => {
     this._filterSearch = (event.target as HTMLInputElement).value;
     if (this._searchDebounceHandle !== undefined) {
@@ -478,7 +489,15 @@ export class JobsJobsJobsBackgroundJobsHistoryElement extends UmbLitElement {
     }
 
     if (this._items.length === 0) {
-      return html`<div class="empty-state-panel">No runs match the current filters.</div>`;
+      return this._hasActiveFilters()
+        ? html`<div class="empty-state-panel">
+            <p>No runs match the current filters.</p>
+            <p class="muted">Try widening the date range, clearing the job or status filter, or use <strong>Clear filters</strong> to start over.</p>
+          </div>`
+        : html`<div class="empty-state-panel">
+            <p>No runs have been recorded yet.</p>
+            <p class="muted">Runs will appear here once your background jobs start executing.</p>
+          </div>`;
     }
 
     return html`<ul class="recent-run-list history-run-list">${this._items.map((run) => this._renderRunItem(run))}</ul>`;
