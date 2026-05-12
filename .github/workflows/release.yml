@@ -43,5 +43,30 @@ jobs:
       - name: Build & Pack
         run: dotnet pack src/JobsJobsJobs/JobsJobsJobs.csproj -c Release --no-build /p:Version=${{github.ref_name}}
 
+      - name: Verify nupkg contents
+        run: |
+          NUPKG=$(find . -name "*.nupkg" | head -1)
+          echo "Inspecting $NUPKG"
+          REQUIRED=(
+            "staticwebassets/App_Plugins/JobsJobsJobs/umbraco-package.json"
+            "staticwebassets/App_Plugins/JobsJobsJobs/jobs-jobs-jobs.js"
+            "lib/net10.0/JobsJobsJobs.dll"
+            "lib/net10.0/JobsJobsJobs.Core.dll"
+            "lib/net10.0/JobsJobsJobs.Infrastructure.dll"
+          )
+          MISSING=0
+          for FILE in "${REQUIRED[@]}"; do
+            if unzip -l "$NUPKG" | grep -q "$FILE"; then
+              echo "✓ $FILE"
+            else
+              echo "✗ MISSING: $FILE"
+              MISSING=1
+            fi
+          done
+          if [ $MISSING -ne 0 ]; then
+            echo "nupkg is missing required files — aborting before push."
+            exit 1
+          fi
+
       - name: Push to NuGet
         run: dotnet nuget push **/*.nupkg -k ${{secrets.NUGET_API_KEY}} -s https://api.nuget.org/v3/index.json
