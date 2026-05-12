@@ -34,6 +34,11 @@ jobs:
       - name: Restore solution
         run: dotnet restore src/JobsJobsJobs.sln
 
+      - name: Build client assets
+        run: |
+          npm ci --prefix src/JobsJobsJobs/Client
+          npm run build --prefix src/JobsJobsJobs/Client
+
       - name: Build solution
         run: dotnet build src/JobsJobsJobs.sln --configuration Release --no-restore
 
